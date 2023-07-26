@@ -1,0 +1,14 @@
+name: CANN
+channels:
+  - defaults
+dependencies:
+  - python = 3.8.3
+  - openpyxl
+  - pip
+  - pip:
+    - numpy == 1.19.0
+    - pandas == 1.0.5
+    - matplotlib == 3.2.2
+    - tensorflow == 2.2.0
+    - scikit-learn == 1.0.2
+    - protobuf == 3.20.*
