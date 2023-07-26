@@ -3,4 +3,4 @@ when using, please cite "A new family of Constitutive Artificial Neural Networks
 
 # Brain
 1. Invariant-based model python files
-2. Invariant and principal-stretch model togeether in one Jupyter Notebook with environment file
+2. Invariant and principal-stretch model together in one Jupyter Notebook with environment file
