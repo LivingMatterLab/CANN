@@ -1,5 +1,5 @@
 # CANNs
-When using, please cite "A new family of Constitutive Artificial Neural Networks towards automated model discovery", CMAME, https://doi.org/10.1016/j.cma.2022.115731
+When using, please cite "A new family of Constitutive Artificial Neural Networks towards automated model discovery", CMAME, https://doi.org/10.1016/j.cma.2022.115731 as well as the relevant other papers provided by this repository. 
 
 All input data and code is provided in the corresponding folders. 
 
