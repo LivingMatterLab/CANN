@@ -1,6 +1,8 @@
 # CANNs
 When using, please cite "A new family of Constitutive Artificial Neural Networks towards automated model discovery", CMAME, https://doi.org/10.1016/j.cma.2022.115731
 
+All input data and code is provided in the corresponding folders. 
+
 ## Brain
 Isotropic models
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
@@ -11,3 +13,6 @@ Anistropic constitutive artificial neural network model, "Automated model discov
 
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
+
+## Rubber
+Isotropic invariant-based model, "A new family of Constitutive Artificial Neural Networks towards automated model discovery" https://doi.org/10.1016/j.cma.2022.115731
