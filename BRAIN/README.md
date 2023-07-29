@@ -8,6 +8,6 @@ Citation: "Automated model discovery for human brain using Constitutive Artifici
 3. plotting_brain.py: plot the results
 
 # Notebook_Inv_and_PrincStretch
-Citation: 
+Citation: "Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 1. BrainCANN_notebook_v4.ipynb: Jupyter Notebook to run principal-stretch and invariant models with colormap plots
 2. environment.yml: an environment set-up that works to run the Notebook
