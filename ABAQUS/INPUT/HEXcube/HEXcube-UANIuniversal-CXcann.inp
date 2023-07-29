@@ -1,0 +1,949 @@
+*Heading
+** HEXcube benchmark - author: Mathias Peirlinck
+** When using, please cite: "On automated model discovery and a universal material subroutine" - M. Peirlinck, K. Linka, J.A. Hurtado, E. Kuhl
+*Preprint, echo=NO, model=NO, history=NO, contact=NO
+*INCLUDE, input=UNIVERSAL_PARAM_TYPES.inc
+**
+** ----------------------------------------------------------
+** PART
+** ----------------------------------------------------------
+**
+*Part, name=ELEMENT
+*Node
+      1,          25.,         -25.,          50.
+      2,          25.,          25.,          50.
+      3,          25.,          25.,           0.
+      4,          25.,         -25.,           0.
+      5,         -25.,         -25.,          50.
+      6,         -25.,          25.,          50.
+      7,         -25.,          25.,           0.
+      8,         -25.,         -25.,           0.
+*Element, type=C3D8H
+1, 1, 2, 3, 4, 5, 6, 7, 8
+*Nset, nset=ALL, generate
+ 1,  8,  1
+*Elset, elset=ALL
+ 1,
+*Nset, nset=N1
+ 1,
+*Nset, nset=N2
+ 2,
+*Nset, nset=N5
+ 5,
+*Nset, nset=N6
+ 6,
+*Nset, nset=N4
+ 4,
+*Nset, nset=N3
+ 3,
+*Nset, nset=N7
+ 7,
+*Nset, nset=N8
+ 8,
+*ORIENTATION,name=ori-1,local directions=2
+ 1.0,0.0,0.0,0.0,1.0,0.0
+ 3,0.0
+*Solid Section, elset=ALL, material=UANIuniversal, orientation=ori-1
+,
+*End Part
+**
+** ----------------------------------------------------------
+** ASSEMBLY
+** ----------------------------------------------------------
+**
+*Assembly, name=Assembly
+**  
+*Instance, name=ELEMENT-1, part=ELEMENT
+*End Instance
+**  
+*End Assembly
+*Amplitude, name=SMOOTHAPPLY, definition=SMOOTH STEP
+             0.,              0.,              1.,              1.
+*Amplitude, name=SMOOTHRELEASE, definition=SMOOTH STEP
+             0.,              1.,              1.,              0.
+**
+** ----------------------------------------------------------
+** MATERIAL
+** ----------------------------------------------------------
+**
+*PARAMETER
+stretch = 5.0
+shear = 10.0
+w1_1 = 0.0
+w2_1 = 0.0
+w1_2 = 0.0
+w2_2 = 0.0
+w1_3 = 0.0
+w2_3 = 0.0
+w1_4 = 0.0
+w2_4 = 0.0
+w1_5 = 0.0
+w2_5 = 0.0
+w1_6 = 0.0
+w2_6 = 0.0
+w1_7 = 0.0
+w2_7 = 0.0
+w1_8 = 0.0
+w2_8 = 0.0
+w1_9 = 0.9875
+w2_9 = 0.6339e-3
+w1_10 = 2.7738
+w2_10 = 1.3702e-3
+w1_11 = 1.6495
+w2_11 = 1.888e-3
+w1_12 = 1.4026
+w2_12 = 1.6663e-3
+*MATERIAL, name=UANIuniversal
+*ANISOTROPIC HYPERELASTIC, USER, formulation=invariant, type=incompressible,local directions=2
+*PARAMETER TABLE, type="UNIVERSAL_TAB"
+1,1,1,<w1_1>,<w2_1>
+1,1,2,<w1_2>,<w2_2>
+1,1,3,<w1_3>,<w2_3>
+1,2,1,<w1_4>,<w2_4>
+1,2,2,<w1_5>,<w2_5>
+1,2,3,<w1_6>,<w2_6>
+2,1,1,<w1_7>,<w2_7>
+2,1,2,<w1_8>,<w2_8>
+2,1,3,<w1_9>,<w2_9>
+2,2,1,<w1_10>,<w2_10>
+2,2,2,<w1_11>,<w2_11>
+2,2,3,<w1_12>,<w2_12>
+**
+** ----------------------------------------------------------
+** STEPS
+** ----------------------------------------------------------
+** STEP: Stretch Y
+*Step, name=StretchY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S4 in Y
+ELEMENT-1.N2, 2, 2, <stretch>
+ELEMENT-1.N3, 2, 2, <stretch>
+ELEMENT-1.N7, 2, 2, <stretch>
+ELEMENT-1.N6, 2, 2, <stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Stretch Y
+** 
+*Step, name=ReleaseStretchY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S4 in Y
+ELEMENT-1.N2, 2, 2, <stretch>
+ELEMENT-1.N3, 2, 2, <stretch>
+ELEMENT-1.N7, 2, 2, <stretch>
+ELEMENT-1.N6, 2, 2, <stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Compression Y
+*Step, name=CompressionY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S4 in Y
+ELEMENT-1.N2, 2, 2, -<stretch>
+ELEMENT-1.N3, 2, 2, -<stretch>
+ELEMENT-1.N7, 2, 2, -<stretch>
+ELEMENT-1.N6, 2, 2, -<stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Compression Y
+*Step, name=ReleaseCompressionY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S4 in Y
+ELEMENT-1.N2, 2, 2, -<stretch>
+ELEMENT-1.N3, 2, 2, -<stretch>
+ELEMENT-1.N7, 2, 2, -<stretch>
+ELEMENT-1.N6, 2, 2, -<stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Shear YX
+*Step, name=ShearYX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S6 in X,Y
+ELEMENT-1.N1, 1, 2
+ELEMENT-1.N4, 1, 2
+ELEMENT-1.N8, 1, 2
+ELEMENT-1.N5, 1, 2
+**Fix S4 in Y
+ELEMENT-1.N2, 2, 2
+ELEMENT-1.N3, 2, 2
+ELEMENT-1.N7, 2, 2
+ELEMENT-1.N6, 2, 2
+**Fix S5 in Z
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N4, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N8, 3, 3
+**Move S4 in X
+ELEMENT-1.N2, 1, 1, <shear>
+ELEMENT-1.N3, 1, 1, <shear>
+ELEMENT-1.N7, 1, 1, <shear>
+ELEMENT-1.N6, 1, 1, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Shear YX
+*Step, name=ReleaseShearYX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S6 in X,Y
+ELEMENT-1.N1, 1, 2
+ELEMENT-1.N4, 1, 2
+ELEMENT-1.N8, 1, 2
+ELEMENT-1.N5, 1, 2
+**Fix S4 in Y
+ELEMENT-1.N2, 2, 2
+ELEMENT-1.N3, 2, 2
+ELEMENT-1.N7, 2, 2
+ELEMENT-1.N6, 2, 2
+**Fix S5 in Z
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N4, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N8, 3, 3
+**Move S4 in X
+ELEMENT-1.N2, 1, 1, <shear>
+ELEMENT-1.N3, 1, 1, <shear>
+ELEMENT-1.N7, 1, 1, <shear>
+ELEMENT-1.N6, 1, 1, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Shear YZ
+*Step, name=ShearYZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S6 in Y, Z
+ELEMENT-1.N1, 2, 3
+ELEMENT-1.N4, 2, 3
+ELEMENT-1.N8, 2, 3
+ELEMENT-1.N5, 2, 3
+**Fix S4 in Y
+ELEMENT-1.N2, 2, 2
+ELEMENT-1.N3, 2, 2
+ELEMENT-1.N7, 2, 2
+ELEMENT-1.N6, 2, 2
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N6, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N8, 1, 1
+**Move S4 in Z
+ELEMENT-1.N2, 3, 3, <shear>
+ELEMENT-1.N3, 3, 3, <shear>
+ELEMENT-1.N7, 3, 3, <shear>
+ELEMENT-1.N6, 3, 3, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Shear YZ
+*Step, name=ReleaseShearYZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S6 in Y, Z
+ELEMENT-1.N1, 2, 3
+ELEMENT-1.N4, 2, 3
+ELEMENT-1.N8, 2, 3
+ELEMENT-1.N5, 2, 3
+**Fix S4 in Y
+ELEMENT-1.N2, 2, 2
+ELEMENT-1.N3, 2, 2
+ELEMENT-1.N7, 2, 2
+ELEMENT-1.N6, 2, 2
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N6, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N8, 1, 1
+**Move S4 in Z
+ELEMENT-1.N2, 3, 3, <shear>
+ELEMENT-1.N3, 3, 3, <shear>
+ELEMENT-1.N7, 3, 3, <shear>
+ELEMENT-1.N6, 3, 3, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Stretch X
+*Step, name=StretchX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S2 in X
+ELEMENT-1.N5, 1, 1, -<stretch>
+ELEMENT-1.N8, 1, 1, -<stretch>
+ELEMENT-1.N7, 1, 1, -<stretch>
+ELEMENT-1.N6, 1, 1, -<stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Stretch X
+*Step, name=ReleaseStretchX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S2 in X
+ELEMENT-1.N5, 1, 1, -<stretch>
+ELEMENT-1.N8, 1, 1, -<stretch>
+ELEMENT-1.N7, 1, 1, -<stretch>
+ELEMENT-1.N6, 1, 1, -<stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Compression X
+*Step, name=CompressionX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S2 in X
+ELEMENT-1.N5, 1, 1, <stretch>
+ELEMENT-1.N8, 1, 1, <stretch>
+ELEMENT-1.N7, 1, 1, <stretch>
+ELEMENT-1.N6, 1, 1, <stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Compression X
+*Step, name=ReleaseCompressionX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S2 in X
+ELEMENT-1.N5, 1, 1, <stretch>
+ELEMENT-1.N8, 1, 1, <stretch>
+ELEMENT-1.N7, 1, 1, <stretch>
+ELEMENT-1.N6, 1, 1, <stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Shear XY
+*Step, name=ShearXY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X,Y
+ELEMENT-1.N1, 1, 2
+ELEMENT-1.N2, 1, 2
+ELEMENT-1.N3, 1, 2
+ELEMENT-1.N4, 1, 2
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N8, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N6, 1, 1
+**Fix S5 in Z
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N8, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N4, 3, 3
+**Move S2 in Y
+ELEMENT-1.N5, 2, 2, <shear>
+ELEMENT-1.N8, 2, 2, <shear>
+ELEMENT-1.N7, 2, 2, <shear>
+ELEMENT-1.N6, 2, 2, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: ReleaseShearXY
+*Step, name=ReleaseShearXY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X,Y
+ELEMENT-1.N1, 1, 2
+ELEMENT-1.N2, 1, 2
+ELEMENT-1.N3, 1, 2
+ELEMENT-1.N4, 1, 2
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N8, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N6, 1, 1
+**Fix S5 in Z
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N8, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N4, 3, 3
+**Move S2 in Y
+ELEMENT-1.N5, 2, 2, <shear>
+ELEMENT-1.N8, 2, 2, <shear>
+ELEMENT-1.N7, 2, 2, <shear>
+ELEMENT-1.N6, 2, 2, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Shear XZ
+*Step, name=ShearXZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S1 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N4, 3, 3
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N8, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N6, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N5, 2, 2
+ELEMENT-1.N8, 2, 2
+**Move S2 in Z
+ELEMENT-1.N5, 3, 3, <shear>
+ELEMENT-1.N8, 3, 3, <shear>
+ELEMENT-1.N7, 3, 3, <shear>
+ELEMENT-1.N6, 3, 3, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Shear XZ
+*Step, name=ReleaseShearXZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S1 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N4, 3, 3
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N8, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N6, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N5, 2, 2
+ELEMENT-1.N8, 2, 2
+**Move S2 in Z
+ELEMENT-1.N5, 3, 3, <shear>
+ELEMENT-1.N8, 3, 3, <shear>
+ELEMENT-1.N7, 3, 3, <shear>
+ELEMENT-1.N6, 3, 3, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Stretch Z
+*Step, name=StretchZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S5 in Z
+ELEMENT-1.N4, 3, 3, -<stretch>
+ELEMENT-1.N3, 3, 3, -<stretch>
+ELEMENT-1.N7, 3, 3, -<stretch>
+ELEMENT-1.N8, 3, 3, -<stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Stretch Z
+*Step, name=ReleaseStretchZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S5 in Z
+ELEMENT-1.N4, 3, 3, -<stretch>
+ELEMENT-1.N3, 3, 3, -<stretch>
+ELEMENT-1.N7, 3, 3, -<stretch>
+ELEMENT-1.N8, 3, 3, -<stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Compression Z
+*Step, name=CompressionZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S5 in Z
+ELEMENT-1.N4, 3, 3, <stretch>
+ELEMENT-1.N3, 3, 3, <stretch>
+ELEMENT-1.N7, 3, 3, <stretch>
+ELEMENT-1.N8, 3, 3, <stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Compression Z
+*Step, name=ReleaseCompressionZ, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S1 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N3, 1, 1
+ELEMENT-1.N4, 1, 1
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N8, 2, 2
+ELEMENT-1.N5, 2, 2
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Move S5 in Z
+ELEMENT-1.N4, 3, 3, <stretch>
+ELEMENT-1.N3, 3, 3, <stretch>
+ELEMENT-1.N7, 3, 3, <stretch>
+ELEMENT-1.N8, 3, 3, <stretch>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Shear ZX
+*Step, name=ShearZX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S3 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N6, 1, 1
+ELEMENT-1.N5, 1, 1
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Fix S5 in Z
+ELEMENT-1.N4, 3, 3
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N8, 3, 3
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N5, 2, 2
+ELEMENT-1.N8, 2, 2
+**Move S5 in X
+ELEMENT-1.N4, 1, 1, -<shear>
+ELEMENT-1.N3, 1, 1, -<shear>
+ELEMENT-1.N7, 1, 1, -<shear>
+ELEMENT-1.N8, 1, 1, -<shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Release Shear ZX
+*Step, name=ReleaseShearZX, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S3 in X
+ELEMENT-1.N1, 1, 1
+ELEMENT-1.N2, 1, 1
+ELEMENT-1.N6, 1, 1
+ELEMENT-1.N5, 1, 1
+**Fix S3 in Z
+ELEMENT-1.N1, 3, 3
+ELEMENT-1.N2, 3, 3
+ELEMENT-1.N6, 3, 3
+ELEMENT-1.N5, 3, 3
+**Fix S5 in Z
+ELEMENT-1.N4, 3, 3
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N8, 3, 3
+**Fix S6 in Y
+ELEMENT-1.N1, 2, 2
+ELEMENT-1.N4, 2, 2
+ELEMENT-1.N5, 2, 2
+ELEMENT-1.N8, 2, 2
+**Move S3 in X
+ELEMENT-1.N4, 1, 1, -<shear>
+ELEMENT-1.N3, 1, 1, -<shear>
+ELEMENT-1.N7, 1, 1, -<shear>
+ELEMENT-1.N8, 1, 1, -<shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: Shear ZY
+*Step, name=ShearZY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHAPPLY
+**Fix S3 in Y, Z
+ELEMENT-1.N1, 2, 3
+ELEMENT-1.N2, 2, 3
+ELEMENT-1.N6, 2, 3
+ELEMENT-1.N5, 2, 3
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N6, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N8, 1, 1
+**Fix S5 in Z
+ELEMENT-1.N4, 3, 3 
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N8, 3, 3 
+**Move S5 in Y
+ELEMENT-1.N4, 2, 2, <shear>
+ELEMENT-1.N3, 2, 2, <shear>
+ELEMENT-1.N7, 2, 2, <shear>
+ELEMENT-1.N8, 2, 2, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
+**
+** ----------------------------------------------------------------
+** STEP: ReleaseShear ZY
+*Step, name=ReleaseShearZY, nlgeom=YES
+*Static
+1., 1., 1e-05, 1.
+*Boundary, op=new, amplitude=SMOOTHRELEASE
+**Fix S3 in Y, Z
+ELEMENT-1.N1, 2, 3
+ELEMENT-1.N2, 2, 3
+ELEMENT-1.N6, 2, 3
+ELEMENT-1.N5, 2, 3
+**Fix S2 in X
+ELEMENT-1.N5, 1, 1
+ELEMENT-1.N6, 1, 1
+ELEMENT-1.N7, 1, 1
+ELEMENT-1.N8, 1, 1
+**Fix S5 in Z
+ELEMENT-1.N4, 3, 3 
+ELEMENT-1.N3, 3, 3
+ELEMENT-1.N7, 3, 3
+ELEMENT-1.N8, 3, 3 
+**Move S5 in Y
+ELEMENT-1.N4, 2, 2, <shear>
+ELEMENT-1.N3, 2, 2, <shear>
+ELEMENT-1.N7, 2, 2, <shear>
+ELEMENT-1.N8, 2, 2, <shear>
+*Restart, write, frequency=0
+*Output, field, number interval=10
+*Element Output
+NE, S, COORD
+*Node Output
+U, COORD
+*End Step
