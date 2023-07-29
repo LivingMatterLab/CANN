@@ -1,5 +1,5 @@
 *Heading
-** HEXcube benchmark - author: Mathias Peirlinck
+HEXcube benchmark - author: Mathias Peirlinck
 ** When using, please cite: "On automated model discovery and a universal material subroutine" - M. Peirlinck, K. Linka, J.A. Hurtado, E. Kuhl
 *Preprint, echo=NO, model=NO, history=NO, contact=NO
 *INCLUDE, input=UNIVERSAL_PARAM_TYPES.inc
