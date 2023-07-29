@@ -5,7 +5,8 @@ All input data and code is provided in the corresponding folders.
 
 ## Abaqus
 Universal material model subroutine and simulation files,  
-"On automated model discovery and a universal material subroutine" https://doi.org/10.1101/2023.07.19.549749 
+"On automated model discovery and a universal material subroutine"  
+https://doi.org/10.1101/2023.07.19.549749 
 
 ## Brain
 Isotropic models
