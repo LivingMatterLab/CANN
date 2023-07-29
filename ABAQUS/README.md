@@ -6,7 +6,7 @@ by Mathias Peirlinck, Kevin Linka, Juan A. Hurtado, Ellen Kuhl
 Preprint: [doi: 10.1101/2023.07.19.549749](https://doi.org/10.1101/2023.07.19.549749)
 
 **When using/modifying our universal material subroutine, simulation files, and/or data,  
-please cite our original work!**
+please cite our paper above!**
 
 > This repository is organized as follows:  
 > /DATA contains the original experimental data used to autonomously learn the constitutive artifical neural network model for gray and white brain matter tissue  
