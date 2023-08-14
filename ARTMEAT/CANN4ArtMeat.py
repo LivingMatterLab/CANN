@@ -193,10 +193,10 @@ def modelArchitecture(Psi_model):
 
 
 ### User parameters to change ################
-train = False  # train or used previously trained weighted (True/False)
+train = True  # train or used previously trained weighted (True/False)
 epochs = 20000  # used 20000 as upper bound on epochs, most cases stopped well before
 batch_size = 8  # used 8
-folder_name = 'test_asymp3'  # make folder with results; rename each time you train
+folder_name = 'test'  # make folder with results; rename each time you train
 weight_flag = True  # print out weights (True/False)
 weight_plot_Map = True  # plot results (True/False)
 
