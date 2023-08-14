@@ -9,7 +9,7 @@ Universal material model subroutine and simulation files,
 https://doi.org/10.1101/2023.07.19.549749 
 
 ## ArtMeat
-Valanis-Landel type & principal-stretch-based models, "Discovering the mechanics of artificial and real meat" https://doi.org/10.1016/j.cma.2023.116236
+Valanis-Landel type, principal-stretch-based, and invariant-based models, "Discovering the mechanics of artificial and real meat" https://doi.org/10.1016/j.cma.2023.116236
 
 Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these update.
 
