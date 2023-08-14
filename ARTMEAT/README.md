@@ -3,8 +3,8 @@ Uniaxial tension/compression and simple shear data for artifical chick'n, real c
 
 # Code
 Citation: "Discovering the mechanics of artificial and real meat" https://doi.org/10.1016/j.cma.2023.116236
-1. CANN4brain_main.py: main code
-2. models_artmeat_stretch_inv.py: build the CANN principal-stretch-based and Valanis-Landel type networks
+1. CANN4brain_main.py: main code, designed for users to easily switch model type and regularization penalty and type (L1 vs. L2)
+2. models_artmeat_stretch_inv.py: build the CANN principal-stretch-based, Valanis-Landel type, and invariant-based networks
 3. plottingArtMeat.py: plot the results
 
 # Revision Summary
