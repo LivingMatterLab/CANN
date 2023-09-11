@@ -18,6 +18,9 @@ Isotropic models
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
+## Graz
+Workshop for the Summer Biomechanics School 2023. Contains Google Colab code to run the same models and data as contained in \BRAIN.
+
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
 
