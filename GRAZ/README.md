@@ -11,5 +11,5 @@ Uniaxial tension/compression and simple shear data for the cortext, corona radia
 2. Make sure all the code blocks have been checked; missing one would prevent the code from running.
 
 # Common Questions
-Q. Do I need to install anything? \\
+Q. Do I need to install anything? \
 A. No, Google Colab is a cloud-based computing platform that is free to use with a Google account. Python and many common packages come pre-installed.
