@@ -20,4 +20,7 @@ A. No, Colab is a cloud-based computing platform that is free to use with a Goog
 `matplotlib==3.2.2` \
 `tensorflow==2.12.0` \
 `numpy==1.23.5` \
-`pandas==1.5.3`
+`pandas==1.5.3` \
+`sklearn==1.2.2` \
+`json==2.0.9` \
+`python==3.10.12`
