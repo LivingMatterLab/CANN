@@ -11,7 +11,7 @@ https://doi.org/10.1101/2023.07.19.549749
 ## ArtMeat
 Valanis-Landel type, principal-stretch-based, and invariant-based models, "Discovering the mechanics of artificial and real meat" https://doi.org/10.1016/j.cma.2023.116236
 
-Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these update.
+Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these updates.
 
 ## Brain
 Isotropic models
@@ -19,7 +19,7 @@ Isotropic models
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
 ## Graz
-Workshop for the Summer Biomechanics School 2023. Contains Google Colab code to run the same models and data as contained in \BRAIN.
+Workshop for the Summer Biomechanics School 2023. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
 
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
