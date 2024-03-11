@@ -13,8 +13,13 @@ Scientific paper using this code: (https://doi.org/10.1016/j.jmbbm.2023.106021)
 
 # Compatible Package Versions
 Pandas 1.3.5
+
 Numpy 1.19.5
+
 Sklearn 1.0.2
+
 Matplotlib 3.5.2
+
 Tensorflow 2.0.0
+
 Python 3.7.16
