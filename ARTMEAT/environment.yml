@@ -1,0 +1,10 @@
+name: CANN
+channels:
+  - defaults
+dependencies:
+  - matplotlib = 3.2.2
+  - python = 3.8.3
+  - pandas = 1.0.5
+  - pip:
+    - numpy == 1.19.0
+    - tensorflow == 2.2.0
