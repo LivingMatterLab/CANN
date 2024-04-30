@@ -9,12 +9,15 @@ Universal material model subroutine and simulation files,
 https://doi.org/10.1101/2023.07.19.549749 
 
 ## ArtMeat
-Valanis-Landel type, principal-stretch-based, and invariant-based models, "Discovering the mechanics of artificial and real meat" https://doi.org/10.1016/j.cma.2023.116236
+Models and data for animal and plant-based meat papers. 
+1. Valanis-Landel type, principal-stretch-based, and invariant-based models, "Discovering the mechanics of artificial and real meat" https://doi.org/10.1016/j.cma.2023.116236
 
-Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these updates.
+	Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these updates.
+
+2. Invariant-based model, "Got meat? The mechanical signature of animal and plant-based meat" https://doi.org/10.1101/2024.04.25.591207
 
 ## Brain
-Isotropic models
+Isotropic models and data for brain papers.
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
