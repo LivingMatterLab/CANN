@@ -4,7 +4,8 @@ When using, please cite "A new family of Constitutive Artificial Neural Networks
 All input data and code is provided in the corresponding folders. 
 
 ## Abaqus
-
+Universal material modeling subroutine, simulation input files, and benchmark simulations.
+When using, please cite
 1. Universal material modeling framework for soft matter - "A universal material model subroutine for soft matter systems", https://doi.org/10.48550/arXiv.2404.13144
 2. Orthotropic hyperelastic material behavior; myocardial tissue, "Automated model discovery for human cardiac tissue: discovering the best model and parameters", https://doi.org/10.1016/j.cma.2024.117078
 3. Transverse isotropic material behavior; arterial tissue, "Democratizing biomedical simulation through automated model discovery and a universal material subroutine", https://doi.org/10.1101/2023.12.06.570487
