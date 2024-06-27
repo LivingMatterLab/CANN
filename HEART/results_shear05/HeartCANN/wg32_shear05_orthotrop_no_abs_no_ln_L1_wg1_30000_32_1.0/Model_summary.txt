@@ -1,0 +1,204 @@
+Model: "Psi"
+________________________________________________________________________________
+ Layer (type)             Output Shape      Param #  Connected to               
+================================================================================
+ I1 (InputLayer)          [(None, 1)]       0        []                         
+                                                                                
+ I2 (InputLayer)          [(None, 1)]       0        []                         
+                                                                                
+ I4f (InputLayer)         [(None, 1)]       0        []                         
+                                                                                
+ I4s (InputLayer)         [(None, 1)]       0        []                         
+                                                                                
+ I4n (InputLayer)         [(None, 1)]       0        []                         
+                                                                                
+ I8fs (InputLayer)        [(None, 1)]       0        []                         
+                                                                                
+ I8fn (InputLayer)        [(None, 1)]       0        []                         
+                                                                                
+ I8sn (InputLayer)        [(None, 1)]       0        []                         
+                                                                                
+ lambda_700 (Lambda)      (None, 1)         0        ['I1[0][0]']               
+                                                                                
+ lambda_701 (Lambda)      (None, 1)         0        ['I2[0][0]']               
+                                                                                
+ lambda_702 (Lambda)      (None, 1)         0        ['I4f[0][0]']              
+                                                                                
+ lambda_703 (Lambda)      (None, 1)         0        ['I4s[0][0]']              
+                                                                                
+ lambda_704 (Lambda)      (None, 1)         0        ['I4n[0][0]']              
+                                                                                
+ lambda_705 (Lambda)      (None, 1)         0        ['I8fs[0][0]']             
+                                                                                
+ lambda_706 (Lambda)      (None, 1)         0        ['I8fn[0][0]']             
+                                                                                
+ lambda_707 (Lambda)      (None, 1)         0        ['I8sn[0][0]']             
+                                                                                
+ tf.math.square_80 (TFOpL  (None, 1)        0        ['lambda_700[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_81 (TFOpL  (None, 1)        0        ['lambda_700[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_82 (TFOpL  (None, 1)        0        ['lambda_701[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_83 (TFOpL  (None, 1)        0        ['lambda_701[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_84 (TFOpL  (None, 1)        0        ['lambda_702[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_85 (TFOpL  (None, 1)        0        ['lambda_702[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_86 (TFOpL  (None, 1)        0        ['lambda_703[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_87 (TFOpL  (None, 1)        0        ['lambda_703[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_88 (TFOpL  (None, 1)        0        ['lambda_704[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_89 (TFOpL  (None, 1)        0        ['lambda_704[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_90 (TFOpL  (None, 1)        0        ['lambda_705[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_91 (TFOpL  (None, 1)        0        ['lambda_705[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_92 (TFOpL  (None, 1)        0        ['lambda_706[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_93 (TFOpL  (None, 1)        0        ['lambda_706[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_94 (TFOpL  (None, 1)        0        ['lambda_707[0][0]']       
+ ambda)                                                                         
+                                                                                
+ tf.math.square_95 (TFOpL  (None, 1)        0        ['lambda_707[0][0]']       
+ ambda)                                                                         
+                                                                                
+ w11 (Dense)              (None, 1)         1        ['lambda_700[0][0]']       
+                                                                                
+ w21 (Dense)              (None, 1)         1        ['lambda_700[0][0]']       
+                                                                                
+ w31 (Dense)              (None, 1)         1        ['tf.math.square_80[0][0]']
+                                                                                
+ w41 (Dense)              (None, 1)         1        ['tf.math.square_81[0][0]']
+                                                                                
+ w51 (Dense)              (None, 1)         1        ['lambda_701[0][0]']       
+                                                                                
+ w61 (Dense)              (None, 1)         1        ['lambda_701[0][0]']       
+                                                                                
+ w71 (Dense)              (None, 1)         1        ['tf.math.square_82[0][0]']
+                                                                                
+ w81 (Dense)              (None, 1)         1        ['tf.math.square_83[0][0]']
+                                                                                
+ w91 (Dense)              (None, 1)         1        ['lambda_702[0][0]']       
+                                                                                
+ w101 (Dense)             (None, 1)         1        ['lambda_702[0][0]']       
+                                                                                
+ w111 (Dense)             (None, 1)         1        ['tf.math.square_84[0][0]']
+                                                                                
+ w121 (Dense)             (None, 1)         1        ['tf.math.square_85[0][0]']
+                                                                                
+ w131 (Dense)             (None, 1)         1        ['lambda_703[0][0]']       
+                                                                                
+ w141 (Dense)             (None, 1)         1        ['lambda_703[0][0]']       
+                                                                                
+ w151 (Dense)             (None, 1)         1        ['tf.math.square_86[0][0]']
+                                                                                
+ w161 (Dense)             (None, 1)         1        ['tf.math.square_87[0][0]']
+                                                                                
+ w171 (Dense)             (None, 1)         1        ['lambda_704[0][0]']       
+                                                                                
+ w181 (Dense)             (None, 1)         1        ['lambda_704[0][0]']       
+                                                                                
+ w191 (Dense)             (None, 1)         1        ['tf.math.square_88[0][0]']
+                                                                                
+ w201 (Dense)             (None, 1)         1        ['tf.math.square_89[0][0]']
+                                                                                
+ w211 (Dense)             (None, 1)         1        ['lambda_705[0][0]']       
+                                                                                
+ w221 (Dense)             (None, 1)         1        ['lambda_705[0][0]']       
+                                                                                
+ w231 (Dense)             (None, 1)         1        ['tf.math.square_90[0][0]']
+                                                                                
+ w241 (Dense)             (None, 1)         1        ['tf.math.square_91[0][0]']
+                                                                                
+ w251 (Dense)             (None, 1)         1        ['lambda_706[0][0]']       
+                                                                                
+ w261 (Dense)             (None, 1)         1        ['lambda_706[0][0]']       
+                                                                                
+ w271 (Dense)             (None, 1)         1        ['tf.math.square_92[0][0]']
+                                                                                
+ w281 (Dense)             (None, 1)         1        ['tf.math.square_93[0][0]']
+                                                                                
+ w291 (Dense)             (None, 1)         1        ['lambda_707[0][0]']       
+                                                                                
+ w301 (Dense)             (None, 1)         1        ['lambda_707[0][0]']       
+                                                                                
+ w311 (Dense)             (None, 1)         1        ['tf.math.square_94[0][0]']
+                                                                                
+ w321 (Dense)             (None, 1)         1        ['tf.math.square_95[0][0]']
+                                                                                
+ concatenate_45 (Concaten  (None, 4)        0        ['w11[0][0]',              
+ ate)                                                 'w21[0][0]',              
+                                                      'w31[0][0]',              
+                                                      'w41[0][0]']              
+                                                                                
+ concatenate_46 (Concaten  (None, 4)        0        ['w51[0][0]',              
+ ate)                                                 'w61[0][0]',              
+                                                      'w71[0][0]',              
+                                                      'w81[0][0]']              
+                                                                                
+ concatenate_47 (Concaten  (None, 4)        0        ['w91[0][0]',              
+ ate)                                                 'w101[0][0]',             
+                                                      'w111[0][0]',             
+                                                      'w121[0][0]']             
+                                                                                
+ concatenate_48 (Concaten  (None, 4)        0        ['w131[0][0]',             
+ ate)                                                 'w141[0][0]',             
+                                                      'w151[0][0]',             
+                                                      'w161[0][0]']             
+                                                                                
+ concatenate_49 (Concaten  (None, 4)        0        ['w171[0][0]',             
+ ate)                                                 'w181[0][0]',             
+                                                      'w191[0][0]',             
+                                                      'w201[0][0]']             
+                                                                                
+ concatenate_50 (Concaten  (None, 4)        0        ['w211[0][0]',             
+ ate)                                                 'w221[0][0]',             
+                                                      'w231[0][0]',             
+                                                      'w241[0][0]']             
+                                                                                
+ concatenate_51 (Concaten  (None, 4)        0        ['w251[0][0]',             
+ ate)                                                 'w261[0][0]',             
+                                                      'w271[0][0]',             
+                                                      'w281[0][0]']             
+                                                                                
+ concatenate_52 (Concaten  (None, 4)        0        ['w291[0][0]',             
+ ate)                                                 'w301[0][0]',             
+                                                      'w311[0][0]',             
+                                                      'w321[0][0]']             
+                                                                                
+ concatenate_53 (Concaten  (None, 32)       0        ['concatenate_45[0][0]',   
+ ate)                                                 'concatenate_46[0][0]',   
+                                                      'concatenate_47[0][0]',   
+                                                      'concatenate_48[0][0]',   
+                                                      'concatenate_49[0][0]',   
+                                                      'concatenate_50[0][0]',   
+                                                      'concatenate_51[0][0]',   
+                                                      'concatenate_52[0][0]']   
+                                                                                
+ wx2 (Dense)              (None, 1)         32       ['concatenate_53[0][0]']   
+                                                                                
+================================================================================
+Total params: 64
+Trainable params: 64
+Non-trainable params: 0
+________________________________________________________________________________
