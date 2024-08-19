@@ -1,0 +1,16 @@
+name: CANN
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - libopenblas=0.3.21=openmp_hc731615_3
+  - matplotlib-base=3.7.1
+  - python=3.8.16
+  - numpy=1.24.2
+  - scikit-learn=1.2.2
+  - scipy=1.10.1
+  - pip=23.0.1
+  - imageio=2.31.1
+  - pip:
+      - pandas==1.5.3
+      - tensorflow-macos==2.9.2

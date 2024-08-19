@@ -38,3 +38,7 @@ Isotropic invariant-based model, "A new family of Constitutive Artificial Neural
 
 ## Skin
 Anistropic constitutive artificial neural network model, "Automated model discovery for skin: Discovering the best model, data, and experiment" https://doi.org/10.1016/j.cma.2023.116007
+
+## Mesh
+Knitted material anisotropic constitutive neural network, "Automated model discovery for textile structures: The unique mechanical signature of warp knitted fabrics" https://doi.org/10.1101/2024.07.26.605392
+
