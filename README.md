@@ -19,6 +19,9 @@ Models and data for animal and plant-based meat papers.
 
 2. Invariant-based model, "Got meat? The mechanical signature of animal and plant-based meat" https://doi.org/10.1101/2024.04.25.591207
 
+## BCANN
+Bayesian constitutive artifical neural network, "Discovering uncertainty: Bayesian constitutive artificial neural networks" https://doi.org/10.1101/2024.08.19.608595
+
 ## Brain
 Isotropic models and data for brain papers.
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
