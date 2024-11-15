@@ -17,7 +17,7 @@ Models and data for animal and plant-based meat papers.
 
 	Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these updates.
 
-2. Invariant-based model, "Got meat? The mechanical signature of animal and plant-based meat" https://doi.org/10.1101/2024.04.25.591207
+2. Invariant-based model, "The mechanical and sensory signature of plant-based and animal meat" [https://doi.org/10.1101/2024.04.25.591207](https://doi.org/10.1038/s41538-024-00330-6)
 
 ## BCANN
 Bayesian constitutive artifical neural network, "Discovering uncertainty: Bayesian constitutive artificial neural networks" https://doi.org/10.1101/2024.08.19.608595
