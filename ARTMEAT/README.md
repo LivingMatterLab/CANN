@@ -13,8 +13,8 @@ Uniaxial tension/compression and simple shear data for artifical chick'n, real c
 ### Revision Summary
 We have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the updated table, figures, and text are in RevisedArtMeatPaper.pdf and the corrected code is in this GitHub folder; the main findings of this study are not affected by these updates.
 
-# GotMeat?
-Citation: "Got meat? The mechanical signature of animal and plant-based meat" https://doi.org/10.1101/2024.04.25.591207
+# GotMeat? The mechanical and sensory signature of plant-based and animal meat
+Citation: "The mechanical and sensory signature of plant-based and animal meat" [https://doi.org/10.1101/2024.04.25.591207](https://doi.org/10.1038/s41538-024-00330-6)
 
 ### Input: animal and plant-based meat data
 Uniaxial tension/compression and simple shear data for the 5 plant-based and 3 animal meat products analyzed in this paper
