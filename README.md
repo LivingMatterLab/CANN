@@ -6,7 +6,7 @@ All input data and code is provided in the corresponding folders.
 ## Abaqus
 Universal material modeling subroutine, simulation input files, and benchmark simulations.
 
-1. General framework - "A universal material model subroutine for soft matter systems", [https://doi.org/10.48550/arXiv.2404.13144](https://doi.org/10.1007/s00366-024-02031-w)
+1. General framework - "A universal material model subroutine for soft matter systems", [https://doi.org/10.1007/s00366-024-02031-w](https://doi.org/10.1007/s00366-024-02031-w)
 2. Orthotropic hyperelastic material behavior; myocardial tissue, "Automated model discovery for human cardiac tissue: discovering the best model and parameters", [https://doi.org/10.1016/j.cma.2024.117078](https://doi.org/10.1016/j.cma.2024.117078)
 3. Transverse isotropic material behavior; arterial tissue, "Democratizing biomedical simulation through automated model discovery and a universal material subroutine", [https://doi.org/10.1007/s00466-024-02515-y](https://doi.org/10.1007/s00466-024-02515-y)
 4. Isotropic hyperelastic material behavior; brain tissue, "On automated model discovery and a universal material subroutine", [https://doi.org/10.1016/j.cma.2023.116534](https://doi.org/10.1016/j.cma.2023.116534)
