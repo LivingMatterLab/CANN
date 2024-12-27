@@ -3,7 +3,7 @@
 Supplementary software, data, and input files for the paper  
 "On automated model discovery and a universal material subroutine"  
 by Mathias Peirlinck, Kevin Linka, Juan A. Hurtado, Ellen Kuhl  
-Preprint: [doi: 10.1101/2023.07.19.549749](https://doi.org/10.1101/2023.07.19.549749)
+Publication: https://doi.org/10.1016/j.cma.2023.116534
 
 **When using/modifying our universal material subroutine, simulation files, and/or data,  
 please cite our paper above!**
