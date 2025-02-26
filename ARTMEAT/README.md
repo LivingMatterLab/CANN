@@ -3,6 +3,7 @@ Citation: "Biaxial testing and sensory texture perception of plant-based and ani
 
 ### CANN Input & Code
 Input: Biaxial extension with five loading modes for 4 plant-based deli meats and 4 animal deli meats. Loading modes are strip-y, off-y, equibiaxial, off-x, and strip-x.
+
 BiaxCANN_Isotropic.ipynb: Jupyter notebook to run invariant-based constitutive artifical neural network with 8 terms
 
 ### Least Squares Regression
