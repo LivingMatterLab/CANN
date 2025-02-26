@@ -13,7 +13,7 @@ BiaxCANN_Isotropic.ipynb: Jupyter notebook to run invariant-based constitutive a
 ### Table 2: Full Data
 DeliMeatBiaxData.xlsx contains 21 datapoints and 3 significant digits after the decimal
 
-# The mechanical and sensory signature of plant-based and animal meat
+# MechSignature
 Citation: "The mechanical and sensory signature of plant-based and animal meat" [https://doi.org/10.1101/2024.04.25.591207](https://doi.org/10.1038/s41538-024-00330-6)
 
 ### Input: animal and plant-based meat data
