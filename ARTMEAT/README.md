@@ -1,3 +1,21 @@
+# FungiSteak
+Citation: "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" https://www.biorxiv.org/content/10.1101/2025.04.17.649423v1
+
+### Mechanical data
+Contains all rheometer raw data for the in-plane and cross-plane direction:
+- Compression (20% and 50%)
+- Shear
+- Double compression (2s, 4s, 8s, 80s and 800s)
+- Rheology
+
+### Processing 
+steaks.py: data analysis, statistics and plotting results
+
+### Model Discovery
+- CANN4ArtMeat.py: main code to run the eight-term invariant-based model
+- models_artmeat_inv.py: build the invariant-based network
+- plottingArtMeat.py: plot the results
+
 # BiaxialDeliMeat
 Citation: "Biaxial testing and sensory texture perception of plant-based and animal deli meat" https://www.biorxiv.org/content/10.1101/2025.02.19.639170v1
 
