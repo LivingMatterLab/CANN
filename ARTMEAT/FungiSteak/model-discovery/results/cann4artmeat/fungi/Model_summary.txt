@@ -1,0 +1,60 @@
+Model: "Psi"
+________________________________________________________________________________
+ Layer (type)             Output Shape      Param #  Connected to               
+================================================================================
+ I1 (InputLayer)          [(None, 1)]       0        []                         
+                                                                                
+ I2 (InputLayer)          [(None, 1)]       0        []                         
+                                                                                
+ lambda_66 (Lambda)       (None, 1)         0        ['I1[0][0]']               
+                                                                                
+ lambda_67 (Lambda)       (None, 1)         0        ['I2[0][0]']               
+                                                                                
+ tf.math.square_44 (TFOpL  (None, 1)        0        ['lambda_66[0][0]']        
+ ambda)                                                                         
+                                                                                
+ tf.math.square_45 (TFOpL  (None, 1)        0        ['lambda_66[0][0]']        
+ ambda)                                                                         
+                                                                                
+ tf.math.square_46 (TFOpL  (None, 1)        0        ['lambda_67[0][0]']        
+ ambda)                                                                         
+                                                                                
+ tf.math.square_47 (TFOpL  (None, 1)        0        ['lambda_67[0][0]']        
+ ambda)                                                                         
+                                                                                
+ w11 (Dense)              (None, 1)         1        ['lambda_66[0][0]']        
+                                                                                
+ w21 (Dense)              (None, 1)         1        ['lambda_66[0][0]']        
+                                                                                
+ w31 (Dense)              (None, 1)         1        ['tf.math.square_44[0][0]']
+                                                                                
+ w41 (Dense)              (None, 1)         1        ['tf.math.square_45[0][0]']
+                                                                                
+ w51 (Dense)              (None, 1)         1        ['lambda_67[0][0]']        
+                                                                                
+ w61 (Dense)              (None, 1)         1        ['lambda_67[0][0]']        
+                                                                                
+ w71 (Dense)              (None, 1)         1        ['tf.math.square_46[0][0]']
+                                                                                
+ w81 (Dense)              (None, 1)         1        ['tf.math.square_47[0][0]']
+                                                                                
+ concatenate_33 (Concaten  (None, 4)        0        ['w11[0][0]',              
+ ate)                                                 'w21[0][0]',              
+                                                      'w31[0][0]',              
+                                                      'w41[0][0]']              
+                                                                                
+ concatenate_34 (Concaten  (None, 4)        0        ['w51[0][0]',              
+ ate)                                                 'w61[0][0]',              
+                                                      'w71[0][0]',              
+                                                      'w81[0][0]']              
+                                                                                
+ concatenate_35 (Concaten  (None, 8)        0        ['concatenate_33[0][0]',   
+ ate)                                                 'concatenate_34[0][0]']   
+                                                                                
+ wx2 (Dense)              (None, 1)         8        ['concatenate_35[0][0]']   
+                                                                                
+================================================================================
+Total params: 16
+Trainable params: 16
+Non-trainable params: 0
+________________________________________________________________________________
