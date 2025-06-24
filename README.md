@@ -46,3 +46,5 @@ Anistropic constitutive artificial neural network model, "Automated model discov
 ## Mesh
 Knitted material anisotropic constitutive neural network, "Automated model discovery for textile structures: The unique mechanical signature of warp knitted fabrics" https://doi.org/10.1101/2024.07.26.605392
 
+## GCANN
+Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constitutive neural networks with correlated weights." https://doi.org/10.48550/arXiv.2503.12679
