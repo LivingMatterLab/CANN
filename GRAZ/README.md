@@ -1,10 +1,13 @@
-# Input: brain data, same as in the BRAIN folder
-Uniaxial tension/compression and simple shear data for the cortext, corona radiata, corpus callosum, basal ganglia.
+# Workshops
+ESB2025 and GRAZ2023 contain the codes, data, and slides for each workshop. 
 
 # Instructions
 1. Download `input` folder and `BrainCANN.ipynb` and upload them to your Google Drive account
 2. Change the `path` variable in the third code block to direct to where you put these files
 3. Run the code blocks sequentially
+
+# Input: brain data, same as in the BRAIN folder
+Uniaxial tension/compression and simple shear data for the cortext, corona radiata, corpus callosum, basal ganglia.
 
 # Debugging Common Issues
 1. If you have never used Google Colab before, you will need to right-click on `BrainCANN.ipynb` > Open with > Connect more apps > Colaboratory to install Google Colab onto your account.
