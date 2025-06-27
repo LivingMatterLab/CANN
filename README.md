@@ -28,9 +28,6 @@ Isotropic models and data for brain papers.
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
-## Graz
-Workshop for the Summer Biomechanics School 2023. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
-
 ## Heart
 Orthotropic model and shear and biaxial data for the heart, "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
 
@@ -48,3 +45,6 @@ Knitted material anisotropic constitutive neural network, "Automated model disco
 
 ## GCANN
 Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constitutive neural networks with correlated weights." https://doi.org/10.48550/arXiv.2503.12679
+
+## WORKSHOPS
+Code, slides, and data from the Graz Summer Biomechanics School in 2023 and the ESB conference short course in 2025. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
