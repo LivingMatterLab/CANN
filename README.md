@@ -30,6 +30,8 @@ Isotropic models and data for brain papers.
 
 ## Heart
 Orthotropic model and shear and biaxial data for the heart, "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
+Orthotropic model for the heart with fiber, sheet and normal dispersion,"Discovering dispersion: How robust is automated model discovery for human myocardial tissue?"
+https://doi.org/10.1007/s10237-025-02005-x
 
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
