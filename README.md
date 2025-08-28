@@ -29,9 +29,9 @@ Isotropic models and data for brain papers.
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
 ## Heart
-Orthotropic model and shear and biaxial data for the heart, "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
-Orthotropic model for the heart with fiber, sheet and normal dispersion,"Discovering dispersion: How robust is automated model discovery for human myocardial tissue?"
-https://doi.org/10.1007/s10237-025-02005-x
+1. Orthotropic model and shear and biaxial data for the heart, "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
+
+2. Orthotropic model for the heart with fiber, sheet and normal dispersion,"Discovering dispersion: How robust is automated model discovery for human myocardial tissue?" https://doi.org/10.1007/s10237-025-02005-x
 
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
