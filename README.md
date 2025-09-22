@@ -48,5 +48,8 @@ Knitted material anisotropic constitutive neural network, "Automated model disco
 ## GCANN
 Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constitutive neural networks with correlated weights." https://doi.org/10.48550/arXiv.2503.12679
 
+## GICANN
+Generalized-invariant-based constitutive neural network, "Generalized invariants meet constitutive neural networks: A novel framework for hyperelastic materials." https://doi.org/10.1016/j.jmps.2025.106352
+
 ## WORKSHOPS
 Code, slides, and data from the Graz Summer Biomechanics School in 2023 and the ESB conference short course in 2025. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
