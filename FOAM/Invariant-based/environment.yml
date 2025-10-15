@@ -1,0 +1,14 @@
+name: CANN
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - jinja2 = 3.1.6
+  - matplotlib = 3.10.6
+  - python = 3.13.7
+  - pandas = 2.3.3
+  - numpy = 2.3.3
+  - scikit-learn = 1.7.2
+  - openpyxl = 3.1.5
+  - pip:
+    - tensorflow == 2.20.0
