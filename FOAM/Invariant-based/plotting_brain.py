@@ -85,6 +85,31 @@ def plotTenCom(fig_ax1, lam_ut_all, P_ut_all, Stress_predict_UT, Region):
     
     return R2, R2_c, R2_t
 
+def plotTrans(fig_ax1, lam_ut_all, P_ut_all, Stress_predict_UT, Region):
+    fig_ax1.scatter(lam_ut_all, P_ut_all,s=70, zorder=5,lw=2.5, facecolors='none', edgecolors='k',alpha=0.7,label=Region+ ' compression/tension data')
+    fig_ax1.set_ylabel(r'nominal stress $P$ [kPa]',fontsize='x-large')
+    fig_ax1.set_xlabel(r'stretch $\lambda$ [-]',fontsize='x-large')
+    fig_ax1.plot(lam_ut_all, Stress_predict_UT, label='model',zorder=5, lw=2,color=ColorI);
+    
+    R2_c = r2_score_own(P_ut_all[:17], Stress_predict_UT[:17])
+    R2_t = r2_score_own(P_ut_all[16:], Stress_predict_UT[16:])
+    R2 = r2_score_own(P_ut_all, Stress_predict_UT)
+    
+    fig_ax1.text(0.85,0.25,r'$R^2$: '+f"{R2:.3f}",transform=fig_ax1.transAxes,fontsize=14, horizontalalignment='left',color='k')
+    fig_ax1.text(0.85,0.15,r'$R_{t}^2$: '+f"{R2_t:.3f}",transform=fig_ax1.transAxes,fontsize=14, horizontalalignment='left',color='k')
+    fig_ax1.text(0.85,0.05,r'$R_{c}^2$: '+f"{R2_c:.3f}",transform=fig_ax1.transAxes,fontsize=14, horizontalalignment='left',color='k')
+    
+    
+    # fig_ax1.set_yticks([-1.20, -0.60, -0.30, 0.00, 0.30])
+    # fig_ax1.set_xticks([0.90, 0.95, 1.00, 1.05, 1.10 ])
+    # fig_ax1.set_ylim(-1.2,0.6)
+    # fig_ax1.set_xlim(0.895,1.105)
+    
+    # plt.tight_layout()
+    fig_ax1.legend(loc='upper left', fancybox=True, framealpha=0.,fontsize=14)
+    
+    return R2, R2_c, R2_t
+
 
 
 def plotShear(ax2, gamma_ss, P_ss, Stress_predict_SS, Region):

@@ -21,11 +21,12 @@ from tensorflow.keras import regularizers
 # Initialize (o), (o)^2, exp, log
 ##
 
-initializer_1 = 'glorot_normal'
+initializer_1 = 'ones'
 initializer_zero = 'zeros'
 initializer_log = tf.keras.initializers.RandomUniform(minval=0., maxval=0.1)
 # initializer_log = 'glorot_normal'
-initializer_exp = tf.keras.initializers.RandomUniform(minval=0., maxval=0.1) # worked off and on, starts with huge residual
+initializer_J = tf.keras.initializers.RandomUniform(minval=2., maxval=10) # worked off and on, starts with huge residual
+initializer_exp = tf.keras.initializers.RandomUniform(minval=0., maxval=1.0) # worked off and on, starts with huge residual
 initializer_odgen = tf.keras.initializers.RandomUniform(minval=0.5, maxval=1.0) # worked off and on, starts with huge residual
 
 Square_Layer = tf.keras.layers.Lambda(lambda t: K.square(t))
@@ -362,7 +363,7 @@ def BulkNet(J, idi, L1):
     # I_1_w11 = keras.layers.Dense(1, kernel_initializer=initializer_1, kernel_constraint=keras.constraints.NonNeg(),
     #                              kernel_regularizer=keras.regularizers.l2(L1),
     #                              use_bias=False, activation=None, name='w' + str(1 + idi) + '1')(I1_ref)
-    I_1_w21 = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
+    I_1_w21 = keras.layers.Dense(1, kernel_initializer=initializer_J, kernel_constraint=keras.constraints.NonNeg(),
                                  kernel_regularizer=keras.regularizers.l2(L1),
                                  use_bias=False, activation=activation_Exp_minus_x, name='w' + str(1 + idi) + '1')(logJ)
 
@@ -374,7 +375,7 @@ def BulkNet(J, idi, L1):
     I_1_w41 = keras.layers.Dense(1, kernel_initializer=initializer_1, kernel_constraint=keras.constraints.NonNeg(),
                                  kernel_regularizer=keras.regularizers.l2(L1),
                                  use_bias=False, activation=None, name='w' + str(2 + idi) + '1')(Square_Layer(logJ))
-    I_1_w51 = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
+    I_1_w51 = keras.layers.Dense(1, kernel_initializer=initializer_J, kernel_constraint=keras.constraints.NonNeg(),
                                  kernel_regularizer=keras.regularizers.l2(L1),
                                  use_bias=False, activation=activation_Exp, name='w' + str(3 + idi) + '1')(
         Square_Layer(logJ))
