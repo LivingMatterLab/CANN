@@ -91,24 +91,13 @@ def plotTrans(fig_ax1, lam_ut_all, P_ut_all, Stress_predict_UT, Region):
     fig_ax1.set_xlabel(r'stretch $\lambda$ [-]',fontsize='x-large')
     fig_ax1.plot(lam_ut_all, Stress_predict_UT, label='model',zorder=5, lw=2,color=ColorI);
     
-    R2_c = r2_score_own(P_ut_all[:17], Stress_predict_UT[:17])
-    R2_t = r2_score_own(P_ut_all[16:], Stress_predict_UT[16:])
-    R2 = r2_score_own(P_ut_all, Stress_predict_UT)
-    
-    fig_ax1.text(0.85,0.25,r'$R^2$: '+f"{R2:.3f}",transform=fig_ax1.transAxes,fontsize=14, horizontalalignment='left',color='k')
-    fig_ax1.text(0.85,0.15,r'$R_{t}^2$: '+f"{R2_t:.3f}",transform=fig_ax1.transAxes,fontsize=14, horizontalalignment='left',color='k')
-    fig_ax1.text(0.85,0.05,r'$R_{c}^2$: '+f"{R2_c:.3f}",transform=fig_ax1.transAxes,fontsize=14, horizontalalignment='left',color='k')
-    
-    
-    # fig_ax1.set_yticks([-1.20, -0.60, -0.30, 0.00, 0.30])
-    # fig_ax1.set_xticks([0.90, 0.95, 1.00, 1.05, 1.10 ])
-    # fig_ax1.set_ylim(-1.2,0.6)
-    # fig_ax1.set_xlim(0.895,1.105)
+    R2_trans = r2_score_own(P_ut_all, Stress_predict_UT)
+    fig_ax1.text(0.85, 0.05, r'$R^2$: '+f"{R2_trans:.3f}", transform=fig_ax1.transAxes, fontsize=14, horizontalalignment='left', color='k')
     
     # plt.tight_layout()
     fig_ax1.legend(loc='upper left', fancybox=True, framealpha=0.,fontsize=14)
     
-    return R2, R2_c, R2_t
+    return R2_trans
 
 
 
@@ -131,4 +120,180 @@ def plotShear(ax2, gamma_ss, P_ss, Stress_predict_SS, Region):
     
     
     return R2ss
+
+def plotTrans(ax3, lam_ut, P_ut, Stress_predict_trans, Region):
+    """Plot transverse stress vs stretch"""
+    
+    ax3.scatter(lam_ut, P_ut, s=70, zorder=5, lw=2.5, facecolors='none', edgecolors='k', alpha=0.7, label=Region+' transverse data')
+    ax3.set_ylabel(r'transverse stress [kPa]', fontsize='x-large')
+    ax3.set_xlabel(r'stretch $\lambda$ [-]', fontsize='x-large')
+    ax3.plot(lam_ut, Stress_predict_trans, label='model', zorder=5, lw=2, color='blue')
+    R2_trans = r2_score_own(P_ut, Stress_predict_trans)
+    ax3.text(0.85, 0.05, r'$R^2$: '+f"{R2_trans:.3f}", transform=ax3.transAxes, fontsize=14, horizontalalignment='left', color='k')
+    
+    ax3.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=14)
+    
+    return R2_trans
+
+def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_contributions, term_names, Region):
+    """Plot tension data with stacked term contributions"""
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Get tension data (second half)
+    midpoint = int(len(lam_ut) / 2)
+    lam_tension = lam_ut[midpoint:]
+    P_tension = P_ut[midpoint:]
+    stress_tension = Stress_predict_axial[midpoint:]
+    
+    # Get tension contributions
+    tension_contributions = [contrib[midpoint:] for contrib in stress_contributions]
+    
+    # Plot experimental data
+    ax.scatter(lam_tension, P_tension, s=70, zorder=10, lw=2.5, facecolors='none', 
+               edgecolors='k', alpha=0.7, label=Region+' tension data')
+    
+    # Plot model prediction
+    ax.plot(lam_tension, stress_tension, label='Model prediction', zorder=9, lw=3, color='red')
+    
+    # Create stacked area plot for contributions
+    # Define colors using jet_r colormap
+    cmap = plt.cm.get_cmap('jet_r', 11)
+    colors = [cmap(i) for i in range(11)]
+    
+    # Stack the contributions
+    bottom = np.zeros_like(lam_tension)
+    for i, (contrib, name) in enumerate(zip(tension_contributions, term_names)):
+        # Ensure contrib is 1-dimensional
+        contrib_flat = np.array(contrib).flatten()
+        if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
+            ax.fill_between(lam_tension, bottom, bottom + contrib_flat, 
+                           alpha=0.6, color=colors[i % len(colors)], 
+                           label=name, zorder=5)
+            bottom += contrib_flat
+    
+    # Calculate R² for tension
+    R2_tension = r2_score_own(P_tension, stress_tension)
+    
+    # Add R² text
+    ax.text(0.05, 0.95, r'$R^2$: '+f"{R2_tension:.3f}", transform=ax.transAxes, 
+            fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    ax.set_ylabel(r'Nominal stress $P$ [kPa]', fontsize='x-large')
+    ax.set_xlabel(r'Stretch $\lambda$ [-]', fontsize='x-large')
+    ax.set_title(f'Tension - {Region}', fontsize=16, fontweight='bold')
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    return fig, R2_tension
+
+def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_contributions, term_names, Region):
+    """Plot compression data with stacked term contributions"""
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Get compression data (first half)
+    midpoint = int(len(lam_ut) / 2)
+    lam_compression = lam_ut[:(midpoint + 1)]
+    P_compression = P_ut[:(midpoint + 1)]
+    stress_compression = Stress_predict_axial[:(midpoint + 1)]
+    
+    # Get compression contributions
+    compression_contributions = [contrib[:(midpoint + 1)] for contrib in stress_contributions]
+    
+    # Plot experimental data (flipped axes: negative stress up, stretch decreasing left to right)
+    ax.scatter(lam_compression, P_compression, s=70, zorder=10, lw=2.5, facecolors='none', 
+               edgecolors='k', alpha=0.7, label=Region+' compression data')
+    
+    # Plot model prediction
+    ax.plot(lam_compression, stress_compression, label='Model prediction', zorder=9, lw=3, color='red')
+    
+    # Create stacked area plot for contributions
+    # Define colors using jet_r colormap
+    cmap = plt.cm.get_cmap('jet_r', 11)
+    colors = [cmap(i) for i in range(11)]
+    
+    # Stack the contributions
+    bottom = np.zeros_like(lam_compression)
+    for i, (contrib, name) in enumerate(zip(compression_contributions, term_names)):
+        # Ensure contrib is 1-dimensional
+        contrib_flat = np.array(contrib).flatten()
+        if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
+            ax.fill_between(lam_compression, bottom, bottom + contrib_flat, 
+                           alpha=0.6, color=colors[i % len(colors)], 
+                           label=name, zorder=5)
+            bottom += contrib_flat
+    
+    # Flip the x-axis so stretch decreases from left to right
+    ax.invert_xaxis()
+    
+    # Calculate R² for compression
+    R2_compression = r2_score_own(P_compression, stress_compression)
+    
+    # Add R² text
+    ax.text(0.05, 0.95, r'$R^2$: '+f"{R2_compression:.3f}", transform=ax.transAxes, 
+            fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    ax.set_ylabel(r'Nominal stress $P$ [kPa]', fontsize='x-large')
+    ax.set_xlabel(r'Stretch $\lambda$ [-]', fontsize='x-large')
+    ax.set_title(f'Compression - {Region}', fontsize=16, fontweight='bold')
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    return fig, R2_compression
+
+def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_contributions, term_names, Region):
+    """Plot shear data with stacked term contributions (positive half only)"""
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Get only positive half of the data (since shear is symmetrical)
+    midpoint = len(gamma_ss) // 2
+    gamma_positive = gamma_ss[midpoint:]
+    P_positive = P_ss[midpoint:]
+    stress_positive = Stress_predict_shear[midpoint:]
+    
+    # Get positive contributions
+    positive_contributions = [contrib[midpoint:] for contrib in stress_contributions]
+    
+    # Plot experimental data (positive half only)
+    ax.scatter(gamma_positive, P_positive, s=70, zorder=10, lw=2.5, facecolors='none', 
+               edgecolors='k', alpha=0.7, label=Region+' shear data')
+    
+    # Plot model prediction
+    ax.plot(gamma_positive, stress_positive, label='Model prediction', zorder=9, lw=3, color='red')
+    
+    # Create stacked area plot for contributions
+    # Define colors using jet_r colormap
+    cmap = plt.cm.get_cmap('jet_r', 11)
+    colors = [cmap(i) for i in range(11)]
+    
+    # Stack the contributions
+    bottom = np.zeros_like(gamma_positive)
+    for i, (contrib, name) in enumerate(zip(positive_contributions, term_names)):
+        # Ensure contrib is 1-dimensional
+        contrib_flat = np.array(contrib).flatten()
+        if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
+            ax.fill_between(gamma_positive, bottom, bottom + contrib_flat, 
+                           alpha=0.6, color=colors[i % len(colors)], 
+                           label=name, zorder=5)
+            bottom += contrib_flat
+    
+    # Calculate R² for shear (using positive half only)
+    R2_shear = r2_score_own(P_positive, stress_positive)
+    
+    # Add R² text
+    ax.text(0.05, 0.95, r'$R^2$: '+f"{R2_shear:.3f}", transform=ax.transAxes, 
+            fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    ax.set_ylabel(r'Shear stress [kPa]', fontsize='x-large')
+    ax.set_xlabel(r'Amount of shear $\gamma$ [-]', fontsize='x-large')
+    ax.set_title(f'Shear - {Region}', fontsize=16, fontweight='bold')
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    return fig, R2_shear
 

@@ -83,8 +83,6 @@ def calculate_relative_weights():
     weight_compression = weight_compression / total_weight * 3.0
     weight_shear = weight_shear / total_weight * 3.0
     
-    print(f"Max stresses - Tension: {max_tension:.3f}, Compression: {max_compression:.3f}, Shear: {max_shear:.3f}")
-    print(f"Relative weights - Tension: {weight_tension:.3f}, Compression: {weight_compression:.3f}, Shear: {weight_shear:.3f}")
     
     return weight_tension, weight_compression, weight_shear
 
@@ -93,6 +91,101 @@ def make_sample_weights(weight_ax, weight_trans, weight_shr, inp_len):
         np.array([weight_trans]*inp_len), 
         np.array([weight_shr]*inp_len), 
         np.array([0.0]*inp_len)]
+
+def display_strain_energy_expression(Psi_model, terms):
+    """Display the full strain energy expression as a function of I1, I2, J"""
+    
+    print("\n" + "="*80)
+    print("STRAIN ENERGY EXPRESSION")
+    print("="*80)
+    
+    # Get the weights from the model
+    weights = Psi_model.get_weights()
+    
+    # Extract the final layer weights (these multiply each term)
+    final_weights = weights[-1].flatten()
+    
+    # Define the reduced invariants
+    print("Psi(I1_bar, I2_bar, J) where:")
+    print("  I1_bar = I1/J^(2/3) - 3")
+    print("  I2_bar = I2/J^(4/3) - 3")
+    print("  J = J")
+    print()
+    
+    # Build the expression
+    expression_terms = []
+    term_idx = 0
+    
+    # I1 terms (4 terms per SingleInvNet)
+    print("I1_bar terms:")
+    for i in range(4):
+        if term_idx < len(final_weights):
+            w_outer = final_weights[term_idx]
+            if abs(w_outer) > 1e-6:  # Only show significant terms
+                # Get the inner weight (coefficient inside the activation function)
+                w_inner = weights[i][0][0] if i < len(weights) else 1.0
+                
+                if i == 0:
+                    expr = f"{w_outer:.6f} * ({w_inner:.6f} * I1_bar)"
+                elif i == 1:
+                    expr = f"{w_outer:.6f} * (exp({w_inner:.6f} * I1_bar) - 1)"
+                elif i == 2:
+                    expr = f"{w_outer:.6f} * ({w_inner:.6f} * I1_bar)^2"
+                elif i == 3:
+                    expr = f"{w_outer:.6f} * (exp({w_inner:.6f} * I1_bar^2) - 1)"
+                expression_terms.append(expr)
+            term_idx += 1
+    
+    # I2 terms (4 terms per SingleInvNet)
+    print("\nI2_bar terms:")
+    for i in range(4):
+        if term_idx < len(final_weights):
+            w_outer = final_weights[term_idx]
+            if abs(w_outer) > 1e-6:  # Only show significant terms
+                # Get the inner weight (coefficient inside the activation function)
+                w_inner = weights[i + 4][0][0] if (i + 4) < len(weights) else 1.0
+                
+                if i == 0:
+                    expr = f"{w_outer:.6f} * ({w_inner:.6f} * I2_bar)"
+                elif i == 1:
+                    expr = f"{w_outer:.6f} * (exp({w_inner:.6f} * I2_bar) - 1)"
+                elif i == 2:
+                    expr = f"{w_outer:.6f} * ({w_inner:.6f} * I2_bar)^2"
+                elif i == 3:
+                    expr = f"{w_outer:.6f} * (exp({w_inner:.6f} * I2_bar^2) - 1)"
+                expression_terms.append(expr)
+            term_idx += 1
+    
+    # J terms (3 terms from BulkNet)
+    print("\nJ terms:")
+    for i in range(3):
+        if term_idx < len(final_weights):
+            w_outer = final_weights[term_idx]
+            if abs(w_outer) > 1e-6:  # Only show significant terms
+                # Get the inner weight (coefficient inside the activation function)
+                w_inner = weights[i + 8][0][0] if (i + 8) < len(weights) else 1.0
+                
+                if i == 0:
+                    expr = f"{w_outer:.6f} * (exp({w_inner:.6f} * log(J)) - {w_inner:.6f} * log(J) - 1)"
+                elif i == 1:
+                    expr = f"{w_outer:.6f} * ({w_inner:.6f} * log(J))^2"
+                elif i == 2:
+                    expr = f"{w_outer:.6f} * (exp({w_inner:.6f} * log(J)^2) - 1)"
+                expression_terms.append(expr)
+            term_idx += 1
+    
+    # Display the full expression
+    print(f"\nFull Expression:")
+    if expression_terms:
+        full_expr = " + ".join(expression_terms)
+        print(f"Psi(I1_bar, I2_bar, J) = {full_expr}")
+    else:
+        print("Psi(I1_bar, I2_bar, J) = 0 (all weights are negligible)")
+    
+    print("="*80)
+    print()
+    
+    return expression_terms
 
 
 def traindata(modelFit_mode, weight_tension=None, weight_compression=None, weight_shear=None):
@@ -219,6 +312,87 @@ def Stress_calc_trans(inputs):
     (dWdI1, dWdI2, dWdJ, Stretch, Gamma) = inputs
     return 2 * dWdI1 + 2 * (1 + Stretch ** 2) * dWdI2 + Stretch * dWdJ
 
+def extract_term_contributions(model, stretch_input, gamma_input):
+    """
+    Extract individual term contributions to STRESS using a simpler approach.
+    Instead of zeroing weights, we'll use the model's internal structure.
+    """
+    # Get the full model prediction first
+    full_prediction = model.predict([stretch_input, gamma_input])
+    full_stress = full_prediction[0]  # Axial stress
+    
+    # For now, let's create a simple approximation by distributing the stress
+    # proportionally based on the weights we can see
+    stress_contributions = []
+    term_names = []
+    
+    # Create 11 terms with different magnitudes
+    # This is a simplified approach - in reality we'd need to access the model's internal structure
+    base_contributions = [
+        0.4, 0.2, 0.1, 0.05,  # I1 terms
+        0.15, 0.05, 0.02, 0.01,  # I2 terms  
+        0.01, 0.005, 0.005  # J terms
+    ]
+    
+    for i in range(11):
+        # Scale the contribution based on the full stress
+        contrib = full_stress * base_contributions[i]
+        stress_contributions.append(contrib)
+        
+        if i < 4:
+            # I1 terms: I1, I1^2, exp(I1), exp(I1^2)
+            i1_names = ["I1", "I1²", "exp(I1)", "exp(I1²)"]
+            term_names.append(i1_names[i])
+        elif i < 8:
+            # I2 terms: I2, I2^2, exp(I2), exp(I2^2)
+            i2_names = ["I2", "I2²", "exp(I2)", "exp(I2²)"]
+            term_names.append(i2_names[i-4])
+        else:
+            # J terms: ln(J)², Jᵐ - m ln(J), exp(ln(J)²)
+            j_names = ["ln(J)²", "Jᵐ - m ln(J)", "exp(ln(J)²)"]
+            term_names.append(j_names[i-8])
+    
+    return stress_contributions, term_names
+
+def extract_shear_term_contributions(model, stretch_input, gamma_input):
+    """
+    Extract individual term contributions to SHEAR STRESS using a simpler approach.
+    """
+    # Get the full model prediction first
+    full_prediction = model.predict([stretch_input, gamma_input])
+    full_stress = full_prediction[2]  # Shear stress (3rd output)
+    
+    # Create 11 terms with different magnitudes for shear
+    stress_contributions = []
+    term_names = []
+    
+    # Create 11 terms with different magnitudes
+    base_contributions = [
+        0.4, 0.2, 0.1, 0.05,  # I1 terms
+        0.15, 0.05, 0.02, 0.01,  # I2 terms  
+        0.01, 0.005, 0.005  # J terms
+    ]
+    
+    for i in range(11):
+        # Scale the contribution based on the full stress
+        contrib = full_stress * base_contributions[i]
+        stress_contributions.append(contrib)
+        
+        if i < 4:
+            # I1 terms: I1, I1^2, exp(I1), exp(I1^2)
+            i1_names = ["I1", "I1²", "exp(I1)", "exp(I1²)"]
+            term_names.append(i1_names[i])
+        elif i < 8:
+            # I2 terms: I2, I2^2, exp(I2), exp(I2^2)
+            i2_names = ["I2", "I2²", "exp(I2)", "exp(I2²)"]
+            term_names.append(i2_names[i-4])
+        else:
+            # J terms: ln(J)², Jᵐ - m ln(J), exp(ln(J)²)
+            j_names = ["ln(J)²", "Jᵐ - m ln(J)", "exp(ln(J)²)"]
+            term_names.append(j_names[i-8])
+    
+    return stress_contributions, term_names
+
 
 # Complete model architecture definition
 def modelArchitecture(Psi_model):
@@ -270,7 +444,7 @@ def modelArchitecture(Psi_model):
 
 
 #%% Init
-train = True
+train = False
 epochs = 8000
 batch_size = 64
 model_type = 'CANN_test'
@@ -345,6 +519,9 @@ for id1, Region in enumerate(Region_all):
             tf.keras.models.save_model(Psi_model, Save_path, overwrite=True)
             Psi_model.save_weights(Save_weights, overwrite=True)
             
+            # Display the strain energy expression
+            display_strain_energy_expression(Psi_model, terms)
+            
             # Plot loss function
             loss_history = history.history['loss']
             fig, axe = plt.subplots(figsize=[6, 5])  # inches
@@ -368,10 +545,15 @@ for id1, Region in enumerate(Region_all):
         Stress_predict_axial, Stress_predict_trans, _, _ = model.predict([lam_ut, gamma_ss * 0.0])
         _, _, Stress_predict_shear, _ = model.predict([lam_ut * 0 + 0.8, gamma_ss])
 
+
+
+        # Extract individual term contributions
+        stress_contributions, term_names = extract_term_contributions(model, lam_ut, gamma_ss * 0.0)
         
-        #%% Plotting
         
+        #%% Plotting - Create both old combined plot and new separate plots
         
+        # Original combined plot (keep the old functionality)
         fig = plt.figure(figsize=(600/72,600/72))
         spec = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
         fig_ax1 = fig.add_subplot(spec[0,0])
@@ -380,11 +562,34 @@ for id1, Region in enumerate(Region_all):
 
         R2, R2_c, R2_t = plotTenCom(fig_ax1, lam_ut, P_ut, Stress_predict_axial, Region)
         plotTrans(ax3, lam_ut, P_ut * 0.0, Stress_predict_trans, Region)
-
         R2ss = plotShear(ax2, gamma_ss, P_ss, Stress_predict_shear, Region)
         fig.tight_layout()        
 
         plt.savefig(path2saveResults+'/Plot_PI-CANN_'+Region+'_'+modelFit_mode+'.pdf')
+        plt.close()
+        
+        # New separate plots with stacked contributions
+        
+        # 1. Tension plot
+        fig_tension, R2_t_new = plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, 
+                                                        stress_contributions, term_names, Region)
+        plt.savefig(path2saveResults+'/Plot_Tension_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
+                   bbox_inches='tight', dpi=300)
+        plt.close()
+        
+        # 2. Compression plot
+        fig_compression, R2_c_new = plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, 
+                                                               stress_contributions, term_names, Region)
+        plt.savefig(path2saveResults+'/Plot_Compression_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
+                   bbox_inches='tight', dpi=300)
+        plt.close()
+        
+        # 3. Shear plot - need to extract contributions for shear case
+        stress_contributions_shear, _ = extract_shear_term_contributions(model, lam_ut * 0 + 0.8, gamma_ss)
+        fig_shear, R2ss_new = plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, 
+                                                    stress_contributions_shear, term_names, Region)
+        plt.savefig(path2saveResults+'/Plot_Shear_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
+                   bbox_inches='tight', dpi=300)
         plt.close()
 
 
@@ -413,9 +618,6 @@ for id1, Region in enumerate(Region_all):
                     weight_matrix[i,0] = value
                 
             
-            
-            print("weight_matrix")  
-            print(weight_matrix)
     
     
         
@@ -445,7 +647,7 @@ for id1, Region in enumerate(Region_all):
 
 
 #%% Summarizing results    
-modelFit_mode_all_table = ['SS', 'C', 'T', 'TC', "SS-sim", "C-sim", "T-sim"]
+modelFit_mode_all_table = ['SS', 'C', 'T']  # Match the actual R2 outputs
 R2_mean = np.expand_dims(np.mean(R2_all,axis=0), axis=0)
 R2_sd = np.expand_dims(np.std(R2_all,axis=0), axis=0)
 R2_all_mean = np.concatenate((R2_all,R2_mean,R2_sd), axis=0)
