@@ -1,3 +1,29 @@
+# A universal material model subroutine for soft matter systems
+When using, please cite  
+**"A universal material model subroutine for soft matter systems",  
+M. Peirlinck, J.A. Hurtado, M.K. Rausch, A. Buganza Tepole, E. Kuhl,  
+Engineering with Computers, 2024**,
+[DOI/URL](https://doi.org/10.1007/s00366-024-02031-w)
+
+All input data and code is provided in [LINK](https://github.com/peirlincklab/universalmatsubroutine).
+
+```bibtex
+@article{Peirlinck2024,
+  title = {A universal material model subroutine for soft matter systems},
+  volume = {41},
+  ISSN = {1435-5663},
+  url = {http://dx.doi.org/10.1007/s00366-024-02031-w},
+  DOI = {10.1007/s00366-024-02031-w},
+  number = {2},
+  journal = {Engineering with Computers},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Peirlinck,  Mathias and Hurtado,  Juan A. and Rausch,  Manuel K. and Tepole,  Adrián Buganza and Kuhl,  Ellen},
+  year = {2024},
+  month = sep,
+  pages = {905–927}
+}
+
+Original isotropic subroutine:
 ## On automated model discovery and a universal material subroutine
 
 Supplementary software, data, and input files for the paper  
