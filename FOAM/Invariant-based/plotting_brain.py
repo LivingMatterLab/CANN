@@ -135,9 +135,8 @@ def plotTrans(ax3, lam_ut, P_ut, Stress_predict_trans, Region):
     
     return R2_trans
 
-def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_contributions, term_names, Region):
+def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_contributions, term_names, Region, lam_curve=None, stress_curve=None, contribs_curve=None):
     """Plot tension data with stacked term contributions"""
-    
     fig, ax = plt.subplots(figsize=(10, 8))
     
     # Get tension data (second half)
@@ -145,30 +144,59 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
     lam_tension = lam_ut[midpoint:]
     P_tension = P_ut[midpoint:]
     stress_tension = Stress_predict_axial[midpoint:]
+
+    # If dense curve inputs are provided, use them for plotting the smooth model and contributions
+    use_dense = lam_curve is not None and stress_curve is not None and contribs_curve is not None
+    if use_dense:
+        lam_plot = np.asarray(lam_curve).reshape(-1)
+        stress_plot = np.asarray(stress_curve).reshape(-1)
+        Craw = np.asarray(contribs_curve)
+        # Normalize to shape (num_terms, n_points)
+        if Craw.ndim == 3:
+            # likely (num_terms, n_points, 1) -> squeeze
+            Cmat = np.squeeze(Craw, axis=-1)
+        elif Craw.ndim == 2:
+            # could be (num_terms, n_points) or (n_points, num_terms)
+            if Craw.shape[0] == len(term_names) and Craw.shape[1] == lam_plot.shape[0]:
+                Cmat = Craw
+            elif Craw.shape[0] == lam_plot.shape[0] and Craw.shape[1] == len(term_names):
+                Cmat = Craw.T
+            else:
+                # fallback: treat rows as terms
+                Cmat = Craw
+        else:
+            # list of vectors
+            Cmat = np.vstack([np.array(c).reshape(-1) for c in contribs_curve])
+        tension_contributions = [Cmat[i, :] for i in range(min(Cmat.shape[0], len(term_names)))]
+    else:
+        lam_plot = lam_tension
+        stress_plot = stress_tension
+        # Get tension contributions
+        tension_contributions = [contrib[midpoint:] for contrib in stress_contributions]
     
-    # Get tension contributions
-    tension_contributions = [contrib[midpoint:] for contrib in stress_contributions]
+
     
     # Plot experimental data
     ax.scatter(lam_tension, P_tension, s=70, zorder=10, lw=2.5, facecolors='none', 
                edgecolors='k', alpha=0.7, label=Region+' tension data')
     
     # Plot model prediction
-    ax.plot(lam_tension, stress_tension, label='Model prediction', zorder=9, lw=3, color='red')
+    ax.plot(lam_plot, stress_plot, label='Model prediction', zorder=9, lw=3, color='red')
     
     # Create stacked area plot for contributions
-    # Define colors using jet_r colormap
-    cmap = plt.cm.get_cmap('jet_r', 11)
-    colors = [cmap(i) for i in range(11)]
+    # Define colors using jet_r colormap - dynamically sized to number of terms
+    num_terms = len(term_names)
+    cmap = plt.cm.get_cmap('jet_r', num_terms)
+    colors = [cmap(i) for i in range(num_terms)]
     
     # Stack the contributions
-    bottom = np.zeros_like(lam_tension)
+    bottom = np.zeros_like(lam_plot)
     for i, (contrib, name) in enumerate(zip(tension_contributions, term_names)):
         # Ensure contrib is 1-dimensional
         contrib_flat = np.array(contrib).flatten()
         if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
-            ax.fill_between(lam_tension, bottom, bottom + contrib_flat, 
-                           alpha=0.6, color=colors[i % len(colors)], 
+            ax.fill_between(lam_plot, bottom, bottom + contrib_flat, 
+                           alpha=0.6, color=colors[i], 
                            label=name, zorder=5)
             bottom += contrib_flat
     
@@ -188,7 +216,7 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
     plt.tight_layout()
     return fig, R2_tension
 
-def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_contributions, term_names, Region):
+def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_contributions, term_names, Region, lam_curve=None, stress_curve=None, contribs_curve=None):
     """Plot compression data with stacked term contributions"""
     
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -198,35 +226,58 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
     lam_compression = lam_ut[:(midpoint + 1)]
     P_compression = P_ut[:(midpoint + 1)]
     stress_compression = Stress_predict_axial[:(midpoint + 1)]
-    
-    # Get compression contributions
-    compression_contributions = [contrib[:(midpoint + 1)] for contrib in stress_contributions]
+
+    # If dense curve inputs are provided, use them for plotting the smooth model and contributions
+    use_dense = lam_curve is not None and stress_curve is not None and contribs_curve is not None
+    if use_dense:
+        lam_plot = np.asarray(lam_curve).reshape(-1)
+        stress_plot = np.asarray(stress_curve).reshape(-1)
+        Craw = np.asarray(contribs_curve)
+        if Craw.ndim == 3:
+            Cmat = np.squeeze(Craw, axis=-1)
+        elif Craw.ndim == 2:
+            if Craw.shape[0] == len(term_names) and Craw.shape[1] == lam_plot.shape[0]:
+                Cmat = Craw
+            elif Craw.shape[0] == lam_plot.shape[0] and Craw.shape[1] == len(term_names):
+                Cmat = Craw.T
+            else:
+                Cmat = Craw
+        else:
+            Cmat = np.vstack([np.array(c).reshape(-1) for c in contribs_curve])
+        compression_contributions = [Cmat[i, :] for i in range(min(Cmat.shape[0], len(term_names)))]
+    else:
+        lam_plot = lam_compression
+        stress_plot = stress_compression
+        # Get compression contributions
+        compression_contributions = [contrib[:(midpoint + 1)] for contrib in stress_contributions]
     
     # Plot experimental data (flipped axes: negative stress up, stretch decreasing left to right)
     ax.scatter(lam_compression, P_compression, s=70, zorder=10, lw=2.5, facecolors='none', 
                edgecolors='k', alpha=0.7, label=Region+' compression data')
     
     # Plot model prediction
-    ax.plot(lam_compression, stress_compression, label='Model prediction', zorder=9, lw=3, color='red')
+    ax.plot(lam_plot, stress_plot, label='Model prediction', zorder=9, lw=3, color='red')
     
     # Create stacked area plot for contributions
-    # Define colors using jet_r colormap
-    cmap = plt.cm.get_cmap('jet_r', 11)
-    colors = [cmap(i) for i in range(11)]
+    # Define colors using jet_r colormap - dynamically sized to number of terms
+    num_terms = len(term_names)
+    cmap = plt.cm.get_cmap('jet_r', num_terms)
+    colors = [cmap(i) for i in range(num_terms)]
     
     # Stack the contributions
-    bottom = np.zeros_like(lam_compression)
+    bottom = np.zeros_like(lam_plot)
     for i, (contrib, name) in enumerate(zip(compression_contributions, term_names)):
         # Ensure contrib is 1-dimensional
         contrib_flat = np.array(contrib).flatten()
         if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
-            ax.fill_between(lam_compression, bottom, bottom + contrib_flat, 
-                           alpha=0.6, color=colors[i % len(colors)], 
+            ax.fill_between(lam_plot, bottom, bottom + contrib_flat, 
+                           alpha=0.6, color=colors[i], 
                            label=name, zorder=5)
             bottom += contrib_flat
     
-    # Flip the x-axis so stretch decreases from left to right
+    # Flip both axes so stretch decreases from left to right and negative stress is up
     ax.invert_xaxis()
+    ax.invert_yaxis()
     
     # Calculate R² for compression
     R2_compression = r2_score_own(P_compression, stress_compression)
@@ -244,7 +295,7 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
     plt.tight_layout()
     return fig, R2_compression
 
-def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_contributions, term_names, Region):
+def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_contributions, term_names, Region, gamma_curve=None, stress_curve=None, contribs_curve=None):
     """Plot shear data with stacked term contributions (positive half only)"""
     
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -254,30 +305,52 @@ def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_cont
     gamma_positive = gamma_ss[midpoint:]
     P_positive = P_ss[midpoint:]
     stress_positive = Stress_predict_shear[midpoint:]
-    
-    # Get positive contributions
-    positive_contributions = [contrib[midpoint:] for contrib in stress_contributions]
+
+    # If dense curve inputs are provided, use them for plotting the smooth model and contributions
+    use_dense = gamma_curve is not None and stress_curve is not None and contribs_curve is not None
+    if use_dense:
+        gamma_plot = np.asarray(gamma_curve).reshape(-1)
+        stress_plot = np.asarray(stress_curve).reshape(-1)
+        Craw = np.asarray(contribs_curve)
+        if Craw.ndim == 3:
+            Cmat = np.squeeze(Craw, axis=-1)
+        elif Craw.ndim == 2:
+            if Craw.shape[0] == len(term_names) and Craw.shape[1] == gamma_plot.shape[0]:
+                Cmat = Craw
+            elif Craw.shape[0] == gamma_plot.shape[0] and Craw.shape[1] == len(term_names):
+                Cmat = Craw.T
+            else:
+                Cmat = Craw
+        else:
+            Cmat = np.vstack([np.array(c).reshape(-1) for c in contribs_curve])
+        positive_contributions = [Cmat[i, :] for i in range(min(Cmat.shape[0], len(term_names)))]
+    else:
+        gamma_plot = gamma_positive
+        stress_plot = stress_positive
+        # Get positive contributions
+        positive_contributions = [contrib[midpoint:] for contrib in stress_contributions]
     
     # Plot experimental data (positive half only)
     ax.scatter(gamma_positive, P_positive, s=70, zorder=10, lw=2.5, facecolors='none', 
                edgecolors='k', alpha=0.7, label=Region+' shear data')
     
     # Plot model prediction
-    ax.plot(gamma_positive, stress_positive, label='Model prediction', zorder=9, lw=3, color='red')
+    ax.plot(gamma_plot, stress_plot, label='Model prediction', zorder=9, lw=3, color='red')
     
     # Create stacked area plot for contributions
-    # Define colors using jet_r colormap
-    cmap = plt.cm.get_cmap('jet_r', 11)
-    colors = [cmap(i) for i in range(11)]
+    # Define colors using jet_r colormap - dynamically sized to number of terms
+    num_terms = len(term_names)
+    cmap = plt.cm.get_cmap('jet_r', num_terms)
+    colors = [cmap(i) for i in range(num_terms)]
     
     # Stack the contributions
-    bottom = np.zeros_like(gamma_positive)
+    bottom = np.zeros_like(gamma_plot)
     for i, (contrib, name) in enumerate(zip(positive_contributions, term_names)):
         # Ensure contrib is 1-dimensional
         contrib_flat = np.array(contrib).flatten()
         if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
-            ax.fill_between(gamma_positive, bottom, bottom + contrib_flat, 
-                           alpha=0.6, color=colors[i % len(colors)], 
+            ax.fill_between(gamma_plot, bottom, bottom + contrib_flat, 
+                           alpha=0.6, color=colors[i], 
                            label=name, zorder=5)
             bottom += contrib_flat
     
