@@ -152,9 +152,6 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
     end_pts = [max(0, min(len(x)-1, int(i))) for i in end_pts]
     # ensure increasing order; if not, fix by uniq sorting
     end_pts = sorted(list(dict.fromkeys(end_pts)))  # preserve order-ish by dict trick then sort
-    print(end_pts)
-    print(minima_idx)  
-    print(maxima)
 
     # fallback: if this gives only single endpoint, force segmentation to [0, len-1]
     if len(end_pts) < 2:
@@ -236,11 +233,11 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
 def main():
     # Storage arrays (numpy)
     n_materials = len(foam_types)
-    stretch_ten = np.zeros((n_pts_table, n_materials))
-    stress_ten = np.zeros((n_pts_table, n_materials))
-    stress_ten_std = np.zeros((n_pts_table, n_materials))
+    stretch_ten = np.zeros((n_pts_plt, n_materials))
+    stress_ten = np.zeros((n_pts_plt, n_materials))
+    stress_ten_std = np.zeros((n_pts_plt, n_materials))
 
-    plt.figure(figsize=(8,6))
+
     # --- Tension ----------
     n_cycles = 5
     max_strain_ten = 0.3
@@ -295,7 +292,6 @@ def main():
                 start_idx = 0  # Data starts immediately
             except (ValueError, TypeError, IndexError):
                 start_idx = 2  # Skip header rows
-            print(data)
             displacement_mm = data[start_idx:, 2].astype(float)
             force_n = data[start_idx:, 3].astype(float)
             # gauge_lens_mm is per sample; MATLAB uses gauge_lens_mm(sample_idx)
@@ -311,29 +307,14 @@ def main():
         stress_var_plt = np.nanstd(stress_all_plt, axis=0, ddof=0)
 
         # Resample for table
-        strain_interp_table = np.linspace(0.0, max_strain_ten, n_pts_table)
-        stress_mean_table = np.interp(strain_interp_table, x_interp_plt, stress_mean_plt)
-        stress_var_table = np.interp(strain_interp_table, x_interp_plt, stress_var_plt)
+        # strain_interp_table = np.linspace(0.0, max_strain_ten, n_pts_table)
+        # stress_mean_table = np.interp(strain_interp_table, x_interp_plt, stress_mean_plt)
+        # stress_var_table = np.interp(strain_interp_table, x_interp_plt, stress_var_plt)
 
-        stretch_ten[:, foam_idx] = 1.0 + strain_interp_table
-        stress_ten[:, foam_idx] = stress_mean_table
-        stress_ten_std[:, foam_idx] = stress_var_table
+        stretch_ten[:, foam_idx] = 1.0 + x_interp_plt
+        stress_ten[:, foam_idx] = stress_mean_plt
+        stress_ten_std[:, foam_idx] = stress_var_plt
 
-        # plotting
-        plt.plot(1.0 + x_interp_plt, stress_mean_plt, colors[foam_idx], label=f"{foam} mean")
-        plt.plot(1.0 + strain_interp_table, stress_mean_table, colors[foam_idx] + "o", markersize=4)
-        plt.fill_between(1.0 + x_interp_plt,
-                         stress_mean_plt - stress_var_plt,
-                         stress_mean_plt + stress_var_plt,
-                         color=colors[foam_idx], alpha=0.25)
-    plt.xlim([1.0, 1.3])
-    plt.xlabel("Stretch [-]")
-    plt.ylabel("Stress [kPa]")
-    plt.title("Tension")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
 
     # --- Compression ----------
     max_strain_com = 0.6
@@ -341,12 +322,9 @@ def main():
     n_cycles = 4
     min_peak_dist = 1000
 
-    stretch_com = np.zeros((n_pts_table, n_materials))
-    stress_com = np.zeros((n_pts_table, n_materials))
-    stress_com_std = np.zeros((n_pts_table, n_materials))
-
-    plt.figure(figsize=(8,6))
-    legend_entries = []
+    stretch_com = np.zeros((n_pts_plt, n_materials))
+    stress_com = np.zeros((n_pts_plt, n_materials))
+    stress_com_std = np.zeros((n_pts_plt, n_materials))
     for foam_idx, foam in enumerate(foam_types):
         meas_path = os.path.join(root_folder, f"{foam}_comp_measurements.csv")
         meas = pd.read_csv(meas_path, header=None).values
@@ -380,31 +358,16 @@ def main():
         stress_mean_plt = np.nanmean(stress_all_plt, axis=0)
         stress_var_plt = np.nanstd(stress_all_plt, axis=0, ddof=0)
 
-        # Resample for table
-        strain_interp_table = np.linspace(0.0, max_strain_com, n_pts_table)
-        stress_mean_table = np.interp(strain_interp_table, x_interp_plt, stress_mean_plt)
-        stress_var_table = np.interp(strain_interp_table, x_interp_plt, stress_var_plt)
+        # # Resample for table
+        # strain_interp_table = np.linspace(0.0, max_strain_com, n_pts_table)
+        # stress_mean_table = np.interp(strain_interp_table, x_interp_plt, stress_mean_plt)
+        # stress_var_table = np.interp(strain_interp_table, x_interp_plt, stress_var_plt)
 
-        stretch_com[:, foam_idx] = 1.0 - strain_interp_table
-        stress_com[:, foam_idx] = -stress_mean_table
-        stress_com_std[:, foam_idx] = stress_var_table
+        stretch_com[:, foam_idx] = 1.0 - x_interp_plt
+        stress_com[:, foam_idx] = -stress_mean_plt
+        stress_com_std[:, foam_idx] = stress_var_plt
 
-        # Plot (note reversed direction in MATLAB; here we plot same but sign-changed)
-        plt.plot(1.0 - x_interp_plt, -stress_mean_plt, colors[foam_idx], label=f"{foam} mean")
-        plt.plot(1.0 - strain_interp_table, -stress_mean_table, colors[foam_idx] + "o", markersize=4)
-        plt.fill_between(1.0 - x_interp_plt,
-                         - (stress_mean_plt - stress_var_plt),
-                         - (stress_mean_plt + stress_var_plt),
-                         color=colors[foam_idx], alpha=0.25)
-        legend_entries.append(foam)
-
-    plt.xlabel("Stretch")
-    plt.ylabel("Stress [kPa]")
-    plt.title("Compression")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+       
 
     # --- Shear ----------
     max_shr = 0.15
@@ -413,11 +376,9 @@ def main():
     min_peak_dist = 1000
     strain_interp_plt = np.linspace(0, max_shr, n_pts_plt)
 
-    strain_shr = np.zeros((n_pts_table, n_materials))
-    stress_shr = np.zeros((n_pts_table, n_materials))
-    stress_shr_std = np.zeros((n_pts_table, n_materials))
-
-    plt.figure(figsize=(8,6))
+    strain_shr = np.zeros((n_pts_plt, n_materials))
+    stress_shr = np.zeros((n_pts_plt, n_materials))
+    stress_shr_std = np.zeros((n_pts_plt, n_materials))
     for foam_idx, foam in enumerate(foam_types):
         meas_path = os.path.join(root_folder, f"{foam}_shear_measurements.csv")
         meas = pd.read_csv(meas_path, header=None).values
@@ -478,22 +439,73 @@ def main():
         stress_var_plt = np.nanstd(stress_all_plt, axis=0, ddof=0)
 
         # Resample for table
-        strain_interp_table = np.linspace(0.0, max_shr, n_pts_table)
-        stress_mean_table = np.interp(strain_interp_table, strain_interp_plt, stress_mean_plt)
-        stress_var_table = np.interp(strain_interp_table, strain_interp_plt, stress_var_plt)
+        # strain_interp_table = np.linspace(0.0, max_shr, n_pts_table)
+        # stress_mean_table = np.interp(strain_interp_table, strain_interp_plt, stress_mean_plt)
+        # stress_var_table = np.interp(strain_interp_table, strain_interp_plt, stress_var_plt)
 
-        strain_shr[:, foam_idx] = strain_interp_table
-        stress_shr[:, foam_idx] = stress_mean_table
-        stress_shr_std[:, foam_idx] = stress_var_table
+        strain_shr[:, foam_idx] = strain_interp_plt
+        stress_shr[:, foam_idx] = stress_mean_plt
+        stress_shr_std[:, foam_idx] = stress_var_plt
 
-        # Plot
-        plt.plot(strain_interp_plt, stress_mean_plt, colors[foam_idx], label=f"{foam} mean")
-        plt.plot(strain_interp_table, stress_mean_table, colors[foam_idx] + "o", markersize=4)
-        plt.fill_between(strain_interp_plt,
-                         stress_mean_plt - stress_var_plt,
-                         stress_mean_plt + stress_var_plt,
+
+
+    ## Interpolate to table
+    stretch_ten_table = np.linspace(np.min(stretch_ten), np.max(stretch_ten), n_pts_table)
+    stress_ten_table = np.stack([np.interp(stretch_ten_table, stretch_ten[:, foam_idx], stress_ten[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    stress_ten_std_table = np.stack([np.interp(stretch_ten_table, stretch_ten[:, foam_idx], stress_ten_std[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    stretch_com_table = np.linspace(np.min(stretch_com), np.max(stretch_com), n_pts_table)
+    stress_com_table = np.stack([np.interp(stretch_com_table, stretch_com[::-1, foam_idx], stress_com[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    stress_com_std_table = np.stack([np.interp(stretch_com_table, stretch_com[::-1, foam_idx], stress_com_std[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    strain_shr_table = np.linspace(np.min(strain_shr), np.max(strain_shr), n_pts_table)
+    stress_shr_table = np.stack([np.interp(strain_shr_table, strain_shr[:, foam_idx], stress_shr[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    stress_shr_std_table = np.stack([np.interp(strain_shr_table, strain_shr[:, foam_idx], stress_shr_std[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    print(stretch_ten_table.shape)
+    # ---------- Create all plots at the end ----------
+    # Tension plot
+    plt.figure(figsize=(8,6))
+    for foam_idx in range(n_materials):
+        
+        plt.plot(stretch_ten[:, foam_idx], stress_ten[:, foam_idx], colors[foam_idx], label=f"{foam} mean")
+        plt.plot(stretch_ten_table, stress_ten_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
+        plt.fill_between(stretch_ten[:, foam_idx],
+                         stress_ten[:, foam_idx] - stress_ten_std[:, foam_idx],
+                         stress_ten[:, foam_idx] + stress_ten_std[:, foam_idx],
                          color=colors[foam_idx], alpha=0.25)
+    plt.xlim([1.0, 1.3])
+    plt.xlabel("Stretch [-]")
+    plt.ylabel("Stress [kPa]")
+    plt.title("Tension")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
+    # Compression plot
+    plt.figure(figsize=(8,6))
+    for foam_idx in range(n_materials):
+        plt.plot(stretch_com[:, foam_idx], stress_com[:, foam_idx], colors[foam_idx], label=f"{foam} mean")
+        plt.plot(stretch_com_table, stress_com_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
+        plt.fill_between(stretch_com[:, foam_idx],
+                         stress_com[:, foam_idx] - stress_com_std[:, foam_idx],
+                         stress_com[:, foam_idx] + stress_com_std[:, foam_idx],
+                         color=colors[foam_idx], alpha=0.25)
+    plt.xlabel("Stretch")
+    plt.ylabel("Stress [kPa]")
+    plt.title("Compression")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # Shear plot
+    plt.figure(figsize=(8,6))
+    for foam_idx in range(n_materials):
+        plt.plot(strain_shr[:, foam_idx], stress_shr[:, foam_idx], colors[foam_idx], label=f"{foam} mean")
+        plt.plot(strain_shr_table, stress_shr_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
+        plt.fill_between(strain_shr[:, foam_idx],
+                         stress_shr[:, foam_idx] - stress_shr_std[:, foam_idx],
+                         stress_shr[:, foam_idx] + stress_shr_std[:, foam_idx],
+                         color=colors[foam_idx], alpha=0.25)
     plt.xlabel("Shear Strain [-]")
     plt.ylabel("Shear Stress [kPa]")
     plt.title("Shear")
@@ -502,6 +514,7 @@ def main():
     plt.tight_layout()
     plt.show()
 
+    exit()
     # ---------- Write to LaTeX (strings) ----------
     stress_ten_kPa = stress_ten.copy()
     stress_com_kPa = np.abs(stress_com)
@@ -568,10 +581,6 @@ def main():
                     else:  # tension/compression use lambda
                         stretch_val = 1.0
                 else:
-                    print(stress_all[i, colIdx_global])
-                    print(std_all[i, colIdx_global])
-                    print(stretch_all[i, colIdx_global])
-                    exit()
                     meanVal = stress_all[i, colIdx_global]
                     stdVal = std_all[i, colIdx_global]
                     stretch_val = stretch_all[i, colIdx_global]
