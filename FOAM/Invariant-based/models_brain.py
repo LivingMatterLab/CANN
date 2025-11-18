@@ -459,7 +459,8 @@ def MixedNet(I1_ref, I2_ref, J_in, idi, L1):
                                  use_bias=False, activation=Exp, name='w' + str(2 + idi) + '1')(logJ) # Raising to a power
     I2_term = keras.layers.Lambda(lambda x: x[0] * x[1])([I2_ref, I2_coefficient])
 
-    collect = [I1_term, I2_term]
+    # collect = [I1_term, I2_term]
+    collect = [I1_term]
     # collect_out = tf.keras.layers.concatenate(collect, axis=1)
     
     

@@ -45,20 +45,21 @@ def r2_score_own(Truth, Prediction):
 def getStressStrain(Region):
 
     if Region =='leap':
-        P_ut = dfs.iloc[:,1].astype(np.float64)
         lam_ut = dfs.iloc[:,0].astype(np.float64)
-        
-        P_ss = dfs.iloc[:,3].astype(np.float64).values
-        gamma_ss = dfs.iloc[:,2].astype(np.float64).values
+        P_ut = dfs.iloc[:,1].astype(np.float64)
+        P_ut_std = dfs.iloc[:,2].astype(np.float64)
+        gamma_ss = dfs.iloc[:,3].astype(np.float64).values
+        P_ss = dfs.iloc[:,4].astype(np.float64).values
+        P_ss_std = dfs.iloc[:,5].astype(np.float64)
     elif Region =='turbo':
-        P_ut = dfs.iloc[:,5].astype(np.float64)
-        lam_ut = dfs.iloc[:,4].astype(np.float64)
+        lam_ut = dfs.iloc[:,6].astype(np.float64)
+        P_ut = dfs.iloc[:,7].astype(np.float64)
+        P_ut_std = dfs.iloc[:,8].astype(np.float64)
+        gamma_ss = dfs.iloc[:,9].astype(np.float64).values
+        P_ss = dfs.iloc[:,10].astype(np.float64).values
+        P_ss_std = dfs.iloc[:,11].astype(np.float64)
 
-        P_ss = dfs.iloc[:,7].astype(np.float64).values
-        gamma_ss = dfs.iloc[:,6].astype(np.float64).values
-
-
-    return P_ut, lam_ut, P_ss, gamma_ss
+    return lam_ut, P_ut, P_ut_std, gamma_ss, P_ss, P_ss_std
 
 
 def calculate_relative_weights():
@@ -89,6 +90,12 @@ def make_sample_weights(weight_ax, weight_trans, weight_shr, inp_len):
     return [np.array([weight_ax]*inp_len), 
         np.array([weight_trans]*inp_len), 
         np.array([weight_shr]*inp_len), 
+        np.array([0.0]*inp_len)]
+
+def make_sample_weights_std(weight_ax, weight_trans, weight_shr, inp_len):
+    return [weight_ax, 
+        np.array([weight_trans]*inp_len), 
+        weight_shr, 
         np.array([0.0]*inp_len)]
 
 def display_strain_energy_expression(Psi_model, terms):
@@ -202,7 +209,7 @@ def display_strain_energy_expression(Psi_model, terms):
     return expression_terms
 
 
-def traindata(modelFit_mode, zero_trans_tension=False):
+def traindata(modelFit_mode, zero_trans_tension=False, weight_std=False):
     # The model_given should be the stress-output model, but we need to ensure it has trainable weights
     model_given = model
     midpoint = int(len(lam_ut) / 2)
@@ -218,7 +225,8 @@ def traindata(modelFit_mode, zero_trans_tension=False):
         stress_shear = np.array([0.0] * inp_len)
         psi_output = np.array([0.0] * inp_len)
         output_train = [stress_axial, stress_trans, stress_shear, psi_output]
-        sample_weights = make_sample_weights(weight_tension, weight_tension, 0, inp_len)
+        weight_tension_std = P_ut_std[midpoint:]/(P_ut_std[midpoint:] + eps)**3
+        sample_weights = make_sample_weights_std(weight_tension_std, np.min(weight_tension_std), np.array([0.0]*inp_len), inp_len) if weight_std else make_sample_weights(weight_tension, weight_tension, 0, inp_len)
     elif modelFit_mode == "C":
         stretch_in = lam_ut[:(midpoint + 1)]
         inp_len = stretch_in.shape[0]
@@ -229,7 +237,8 @@ def traindata(modelFit_mode, zero_trans_tension=False):
         stress_shear = np.array([0.0] * inp_len)
         psi_output = np.array([0.0] * inp_len)
         output_train = [stress_axial, stress_trans, stress_shear, psi_output]
-        sample_weights = make_sample_weights(weight_compression, weight_compression, 0, inp_len)
+        weight_compression_std = P_ut_std[:(midpoint + 1)]/(P_ut_std[:(midpoint + 1)] + eps)**3
+        sample_weights = make_sample_weights_std(weight_compression_std, np.min(weight_compression_std), np.array([0.0]*inp_len), inp_len) if weight_std else make_sample_weights(weight_compression, weight_compression, 0, inp_len)
         
     elif modelFit_mode == "TC":
         stretch_in = lam_ut
@@ -250,8 +259,13 @@ def traindata(modelFit_mode, zero_trans_tension=False):
             np.array([weight_compression] * (midpoint + 1)),  # compression data
             np.array([weight_tension if zero_trans_tension else 0.0] * (len(lam_ut) - midpoint - 1))  # tension data
         ])
-        sample_weights = [weight_tc_axial, weight_tc_trans] + [np.array([0.0]*inp_len)]*2
-        
+        weight_tc_axial_std = P_ut_std/(P_ut_std + eps)**3
+        weight_tc_trans_std = np.concatenate([
+            np.array([np.mean(weight_tc_axial_std)] * (midpoint + 1)),  # compression data
+            np.array([np.mean(weight_tc_axial_std) if zero_trans_tension else 0.0] * (len(lam_ut) - midpoint - 1))  # tension data
+        ])
+        sample_weights = (([weight_tc_axial_std, weight_tc_trans_std] if weight_std else [weight_tc_axial, weight_tc_trans]) + 
+            [np.array([0.0]* inp_len)]*2)
     elif modelFit_mode == "SS":
         shear_in = gamma_ss
         inp_len = shear_in.shape[0]
@@ -262,11 +276,14 @@ def traindata(modelFit_mode, zero_trans_tension=False):
         stress_trans = np.array([0.0] * inp_len)
         psi_output = np.array([0.0] * inp_len)
         output_train = [stress_axial, stress_trans, stress_shear, psi_output]
-        sample_weights = make_sample_weights(0, 0, weight_shear, inp_len)
+        weight_ss_shear_std = 1 / (P_ss_std + eps)**2
+        sample_weights = make_sample_weights_std(np.array([0.0]*inp_len), 0.0, weight_ss_shear_std, inp_len) if weight_std else make_sample_weights(0, 0, weight_shear, inp_len)
         
     elif modelFit_mode == "TC_and_SS":
-        _, input_train_1, output_train_1, sample_weights_1 = traindata("TC", zero_trans_tension=zero_trans_tension)
-        _, input_train_2, output_train_2, sample_weights_2 = traindata("SS", zero_trans_tension=zero_trans_tension)
+        _, input_train_1, output_train_1, sample_weights_1 = traindata("TC", zero_trans_tension=zero_trans_tension, weight_std=weight_std)
+        _, input_train_2, output_train_2, sample_weights_2 = traindata("SS", zero_trans_tension=zero_trans_tension, weight_std=weight_std)
+        print(sample_weights_1)
+        print(sample_weights_2)
         input_train = [np.concatenate([x, y], axis=0) for (x, y) in zip(input_train_1, input_train_2)]
         output_train = [np.concatenate([x, y], axis=0) for (x, y) in zip(output_train_1, output_train_2)]
         sample_weights = [np.concatenate([x, y], axis=0) for (x, y) in zip(sample_weights_1, sample_weights_2)]
@@ -651,6 +668,7 @@ weight_flag = True
 principal_stretch_flag = False
 mixed_flag = True
 zero_trans_tension_flag = True
+weight_std_flag = True
 
 # L1 regularization strength
 l1_reg = 0.0
@@ -695,7 +713,7 @@ for id1, Region in enumerate(Region_all):
         makeDIR(path2saveResults)
         makeDIR(path2saveResults_check)
         
-        P_ut, lam_ut, P_ss, gamma_ss = getStressStrain(Region)
+        lam_ut, P_ut, P_ut_std, gamma_ss, P_ss, P_ss_std = getStressStrain(Region)
         
         #%% PI-CANN
         if principal_stretch_flag:
@@ -714,8 +732,8 @@ for id1, Region in enumerate(Region_all):
 
 
         
-        model_given, input_train, output_train, sample_weights = traindata(modelFit_mode, zero_trans_tension=zero_trans_tension_flag)
-
+        model_given, input_train, output_train, sample_weights = traindata(modelFit_mode, zero_trans_tension=zero_trans_tension_flag, weight_std=weight_std_flag)
+        print(sample_weights)
             
         Save_path = path2saveResults + '/model.keras'
         Save_weights = path2saveResults + '/weights.weights.h5'
