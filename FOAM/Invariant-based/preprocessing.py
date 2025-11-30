@@ -5,6 +5,9 @@ Port of the provided MATLAB script to Python using numpy, pandas, matplotlib.
 Ensure your data folder structure matches the MATLAB script expectations.
 """
 
+# TODO: Recollect leap confcomp data / pull last confcomp data from lab computer
+# TODO: Figure out what to do with original tension data
+
 import os
 import numpy as np
 import pandas as pd
@@ -60,9 +63,9 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
     x = np.asarray(x).flatten()
     y = np.asarray(y).flatten()
     is_shear = (loading_mode == "shear")
-    is_ten = (loading_mode == "ten")
-    if not (is_shear or is_ten or loading_mode == "com"):
-        raise ValueError("Invalid loading_mode")
+    # is_ten = (loading_mode == "ten")
+    # if not (is_shear or is_ten or loading_mode == "com"):
+    #     raise ValueError("Invalid loading_mode")
 
     # find peaks (maxima) in x
     peaks_vals, peaks_idx = None, None
@@ -85,7 +88,7 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
     # find minima by finding peaks in offset - x
     inverted = offset_val - x
     minima_idx, _ = find_peaks(inverted, distance=min_peak_dist, height=0)
-   
+
     # For constructing segment boundaries we try to follow MATLAB logic.
     # Identify maxima and minima sequences, and choose start.
     # If too few peaks are found, fallback to simple segmentation (start=0, end=end)
@@ -98,37 +101,38 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
         maxima = peaks_idx.copy()
         minima = minima_idx.copy()
 
-        if is_ten:
-            # For tension, start at index 0 and select first n_cycles maxima and minima
+        ## No longer use this code since we will treat tension the same as comp/shr
+        # if is_ten:
+        #     # For tension, start at index 0 and select first n_cycles maxima and minima
+        #     start = 0
+        #     # keep maxima that are greater than start
+        #     maxima = maxima[maxima > start]
+        #     if maxima.size < n_cycles:
+        #         maxima = maxima[:max(1, maxima.size)]
+        #     else:
+        #         maxima = maxima[:n_cycles]
+        #     minima = minima[:n_cycles] if minima.size >= n_cycles else minima
+        # else:
+        # compression or shear flow in script: minima after first maxima
+        # MATLAB logic: minima = minima(minima > maxima(1)); start = minima(1);
+        maxima_after = maxima[maxima > maxima[0]] if maxima.size > 1 else maxima
+        minima_after = minima[minima > maxima[0]]
+        if minima_after.size == 0:
             start = 0
-            # keep maxima that are greater than start
-            maxima = maxima[maxima > start]
-            if maxima.size < n_cycles:
-                maxima = maxima[:max(1, maxima.size)]
-            else:
-                maxima = maxima[:n_cycles]
-            minima = minima[:n_cycles] if minima.size >= n_cycles else minima
         else:
-            # compression or shear flow in script: minima after first maxima
-            # MATLAB logic: minima = minima(minima > maxima(1)); start = minima(1);
-            maxima_after = maxima[maxima > maxima[0]] if maxima.size > 1 else maxima
-            minima_after = minima[minima > maxima[0]]
-            if minima_after.size == 0:
-                start = 0
-            else:
-                start = minima_after[0]
-            # choose first n_cycles maxima after start
-            maxima = maxima[maxima > start]
-            if maxima.size >= n_cycles:
-                maxima = maxima[:n_cycles]
-            # minima for cycles: in MATLAB they used minima(2:(n_cycles+1)) for com
-            # so shift minima selection
-            # choose minima that occur after maxima[0]
-            # minima = minima[minima > maxima[0]] if maxima.size>0 else minima
-            if minima.size >= (n_cycles + 1):
-                minima = minima[1:(n_cycles + 1)]
-            else:
-                minima = minima[:n_cycles]
+            start = minima_after[0]
+        # choose first n_cycles maxima after start
+        maxima = maxima[maxima > start]
+        if maxima.size >= n_cycles:
+            maxima = maxima[:n_cycles]
+        # minima for cycles: in MATLAB they used minima(2:(n_cycles+1)) for com
+        # so shift minima selection
+        # choose minima that occur after maxima[0]
+        # minima = minima[minima > maxima[0]] if maxima.size>0 else minima
+        if minima.size >= (n_cycles + 1):
+            minima = minima[1:(n_cycles + 1)]
+        else:
+            minima = minima[:n_cycles]
 
     # Build sequence of endpoints: start, maxima[0], minima[0], maxima[1], minima[1], ...
     # In MATLAB they do: end_pts = [maxima, minima]'; end_pts = [start; end_pts(:)];
@@ -203,11 +207,11 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
     else:
         y_interp_all = np.array(y_interp_all)  # shape (n_segments, n_pts)
         # MATLAB special handling:
-        if is_ten:
-            # they took just first and last (?) then averaged; original code: y_interp_all = [y_interp_all(1, :); y_interp_all(end, :)];
-            # We'll pick first and last rows to follow that.
-            if y_interp_all.shape[0] >= 2:
-                y_interp_all = np.vstack([y_interp_all[0, :], y_interp_all[-1, :]])
+        # if is_ten:
+        #     # they took just first and last (?) then averaged; original code: y_interp_all = [y_interp_all(1, :); y_interp_all(end, :)];
+        #     # We'll pick first and last rows to follow that.
+        #     if y_interp_all.shape[0] >= 2:
+        #         y_interp_all = np.vstack([y_interp_all[0, :], y_interp_all[-1, :]])
         if is_shear:
             midpoint = (len(x_interp) // 2)
             # in MATLAB they do midpoint = floor(length/2)+1 and then take midpoint:end,
@@ -237,7 +241,12 @@ def main():
     stress_ten = np.zeros((n_pts_plt, n_materials))
     stress_ten_std = np.zeros((n_pts_plt, n_materials))
 
-
+    # Storage for individual sample data (for subplot figure)
+    # Structure: [foam_idx][sample_idx-1] = {'stretch'/'strain': array, 'stress': array}
+    individual_samples_tension = [[] for _ in range(n_materials)]
+    individual_samples_compression = [[] for _ in range(n_materials)]
+    individual_samples_shear = [[] for _ in range(n_materials)]
+    individual_samples_conf_compression = [[] for _ in range(n_materials)]
     # --- Tension ----------
     n_cycles = 5
     max_strain_ten = 0.3
@@ -255,7 +264,7 @@ def main():
         stress_all_plt = []
 
         for sample_idx in range(1,6):  # MATLAB samples 1..5
-            data_path = os.path.join(root_folder, f"{foam}_tension_{sample_idx}_1.csv")
+            data_path = os.path.join(root_folder, f"{foam}-tension-{sample_idx}_1.csv")
             # Skip metadata lines ("Results Table 1", "Results Table 2", etc.) and header rows
             # Read the file and find where numeric data starts
             try:
@@ -301,6 +310,12 @@ def main():
             min_peak_dist = 100
             x_interp_plt, stress_mean_kpa_plt = average_curves(strain, stress_kpa, n_cycles, n_pts_plt, min_peak_dist, "ten", max_strain_ten)
             stress_all_plt.append(stress_mean_kpa_plt)
+            
+            # Store individual sample data for subplot
+            individual_samples_tension[foam_idx].append({
+                'stretch': 1.0 + strain,
+                'stress': stress_kpa
+            })
 
         stress_all_plt = np.array(stress_all_plt)  # shape (n_samples, n_pts_plt)
         stress_mean_plt = np.nanmean(stress_all_plt, axis=0)
@@ -353,6 +368,12 @@ def main():
 
             x_interp_plt, stress_mean_kpa = average_curves(strain, stress_kpa, n_cycles, n_pts_plt, min_peak_dist, "com", max_strain_com)
             stress_all_plt.append(stress_mean_kpa)
+            
+            # Store individual sample data for subplot
+            individual_samples_compression[foam_idx].append({
+                'stretch': 1.0 - strain,
+                'stress': -stress_kpa
+            })
 
         stress_all_plt = np.array(stress_all_plt)
         stress_mean_plt = np.nanmean(stress_all_plt, axis=0)
@@ -366,6 +387,68 @@ def main():
         stretch_com[:, foam_idx] = 1.0 - x_interp_plt
         stress_com[:, foam_idx] = -stress_mean_plt
         stress_com_std[:, foam_idx] = stress_var_plt
+
+    # --- Confined Compression ----------
+    max_strain_com = 0.6
+    offset = [0, 0]  # MATLAB offset array
+    n_cycles = 4
+    min_peak_dist = 1000
+
+    stretch_conf_com = np.zeros((n_pts_plt, n_materials))
+    stress_conf_com = np.zeros((n_pts_plt, n_materials))
+    stress_conf_com_std = np.zeros((n_pts_plt, n_materials))
+    for foam_idx, foam in enumerate(foam_types):
+        meas_path = os.path.join(root_folder, f"{foam}_confcomp_measurements.csv")
+        meas = pd.read_csv(meas_path, header=None).values
+        diameters_mm = np.mean(meas[:, 0:3], axis=1)  # columns 1:3 in MATLAB
+        areas_mm2 = (diameters_mm ** 2) * np.pi / 4.0
+
+        stress_all_plt = []
+        for sample_idx in range(1,6):
+            # note: MATLAB used file index sample_idx + offset(foam_idx)
+            file_idx = sample_idx + offset[foam_idx]
+            comp_path = os.path.join(root_folder, f"{foam}-confcomp-{file_idx}.txt")
+            # many .txt used whitespace delim
+            # Read as DataFrame first to handle string conversion and NaN columns
+            df = pd.read_csv(comp_path, delim_whitespace=True, header=None)
+            # Convert all columns to numeric, coercing errors to NaN
+            df = df.apply(pd.to_numeric, errors='coerce')
+            # Drop columns that are all NaN
+            df = df.dropna(axis=1, how='all')
+            # Convert to numpy array
+            data = df.values
+            
+            gap_mm = data[1:, 5] / 1e3  # column 6 in MATLAB divided by 1000
+            force_n = data[1:, 4]
+            strain = (gap_mm[0] - gap_mm) / gap_mm[0]
+            stress_kpa = force_n / areas_mm2[sample_idx-1] * 1000.0
+            if (np.max(strain) > 0.65):
+                print(f"Strain too low for {foam} - {sample_idx}")
+                end_idx = np.where(strain > 0.65)[0][0]
+                print(f"End index: {end_idx}")
+                strain = strain[:end_idx]
+                stress_kpa = stress_kpa[:end_idx]
+            x_interp_plt, stress_mean_kpa = average_curves(strain, stress_kpa, n_cycles, n_pts_plt, min_peak_dist, "com", max_strain_com)
+            stress_all_plt.append(stress_mean_kpa)
+            
+            # Store individual sample data for subplot
+            individual_samples_conf_compression[foam_idx].append({
+                'stretch': 1.0 - strain,
+                'stress': -stress_kpa
+            })
+
+        stress_all_plt = np.array(stress_all_plt)
+        stress_mean_plt = np.nanmean(stress_all_plt, axis=0)
+        stress_var_plt = np.nanstd(stress_all_plt, axis=0, ddof=0)
+
+        # # Resample for table
+        # strain_interp_table = np.linspace(0.0, max_strain_com, n_pts_table)
+        # stress_mean_table = np.interp(strain_interp_table, x_interp_plt, stress_mean_plt)
+        # stress_var_table = np.interp(strain_interp_table, x_interp_plt, stress_var_plt)
+
+        stretch_conf_com[:, foam_idx] = 1.0 - x_interp_plt
+        stress_conf_com[:, foam_idx] = -stress_mean_plt
+        stress_conf_com_std[:, foam_idx] = stress_var_plt
 
        
 
@@ -421,7 +504,7 @@ def main():
             disp_rad_max = (height_mm / r) * max_shr * safety_factor if r != 0 else max_shr
 
             disp_rad_interp, torque_nmm_interp_mean = average_curves(disp_rad, torque_nmm, n_cycles, 101, min_peak_dist, "shear", disp_rad_max)
-            
+
             # compute shear strain: radii_mm * disp_rad_interp / height_mm
             strain_vals = r * disp_rad_interp / height_mm
             torque_times_disp_nmm = torque_nmm_interp_mean * disp_rad_interp
@@ -433,6 +516,15 @@ def main():
             # Interpolate shear stress onto common strain_interp_plt
             stress_interp_kpa = np.interp(strain_interp_plt, strain_vals, shear_stress_kpa, left=np.nan, right=np.nan)
             stress_all_plt.append(stress_interp_kpa)
+            ## Compute linearized shear stress
+            strain_raw = r * disp_rad / height_mm
+            shear_stress_raw = 1000.0 * torque_nmm / (np.pi * r**3 / 2.0)
+
+            # Store individual sample data for subplot
+            individual_samples_shear[foam_idx].append({
+                'strain': strain_raw,
+                'stress': shear_stress_raw
+            })
 
         stress_all_plt = np.array(stress_all_plt)
         stress_mean_plt = np.nanmean(stress_all_plt, axis=0)
@@ -459,63 +551,234 @@ def main():
     strain_shr_table = np.linspace(np.min(strain_shr), np.max(strain_shr), n_pts_table)
     stress_shr_table = np.stack([np.interp(strain_shr_table, strain_shr[:, foam_idx], stress_shr[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     stress_shr_std_table = np.stack([np.interp(strain_shr_table, strain_shr[:, foam_idx], stress_shr_std[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    stretch_conf_com_table = np.linspace(np.min(stretch_conf_com), np.max(stretch_conf_com), n_pts_table)
+    stress_conf_com_table = np.stack([np.interp(stretch_conf_com_table, stretch_conf_com[::-1, foam_idx], stress_conf_com[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    stress_conf_com_std_table = np.stack([np.interp(stretch_conf_com_table, stretch_conf_com[::-1, foam_idx], stress_conf_com_std[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    # print(stress_conf_com_table)
+    # print(stretch_conf_com_table)
+    # print(stress_conf_com_std_table)
+    # print(stretch_conf_com)
+    # print(stress_conf_com)
+    # print(stress_conf_com_std)
+    # print(stress_com)
+    # print(stretch_com)
+    # assert False
     print(stretch_ten_table.shape)
     # ---------- Create all plots at the end ----------
+    # Create output directory
+    output_dir = "./Results/RawData"
+    os.makedirs(output_dir, exist_ok=True)
+    
     # Tension plot
     plt.figure(figsize=(8,6))
     for foam_idx in range(n_materials):
-        
-        plt.plot(stretch_ten[:, foam_idx], stress_ten[:, foam_idx], colors[foam_idx], label=f"{foam} mean")
+        plt.plot(stretch_ten[:, foam_idx], stress_ten[:, foam_idx], colors[foam_idx], label=f"{foam_types[foam_idx]}")
         plt.plot(stretch_ten_table, stress_ten_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
         plt.fill_between(stretch_ten[:, foam_idx],
                          stress_ten[:, foam_idx] - stress_ten_std[:, foam_idx],
                          stress_ten[:, foam_idx] + stress_ten_std[:, foam_idx],
                          color=colors[foam_idx], alpha=0.25)
     plt.xlim([1.0, 1.3])
-    plt.xlabel("Stretch [-]")
-    plt.ylabel("Stress [kPa]")
-    plt.title("Tension")
-    plt.legend()
+    plt.xlabel("Stretch [-]", fontsize=16)
+    plt.ylabel("Stress [kPa]", fontsize=16)
+    plt.title("Tension", fontsize=16)
+    plt.tick_params(labelsize=16)
+    plt.legend(fontsize=16)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(output_dir, "Tension.pdf"), format='pdf', bbox_inches='tight')
+    # plt.show()
 
     # Compression plot
-    plt.figure(figsize=(8,6))
+    fig, ax = plt.subplots(figsize=(8,6))
     for foam_idx in range(n_materials):
-        plt.plot(stretch_com[:, foam_idx], stress_com[:, foam_idx], colors[foam_idx], label=f"{foam} mean")
-        plt.plot(stretch_com_table, stress_com_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
-        plt.fill_between(stretch_com[:, foam_idx],
+        ax.plot(stretch_com[:, foam_idx], stress_com[:, foam_idx], colors[foam_idx], label=f"{foam_types[foam_idx]}")
+        ax.plot(stretch_com_table, stress_com_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
+        ax.fill_between(stretch_com[:, foam_idx],
                          stress_com[:, foam_idx] - stress_com_std[:, foam_idx],
                          stress_com[:, foam_idx] + stress_com_std[:, foam_idx],
                          color=colors[foam_idx], alpha=0.25)
-    plt.xlabel("Stretch")
-    plt.ylabel("Stress [kPa]")
-    plt.title("Compression")
-    plt.legend()
-    plt.grid(True)
+    # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
+    ax.invert_xaxis()
+    ax.invert_yaxis()
+    ax.set_xlabel("Stretch", fontsize=16)
+    ax.set_ylabel("Stress [kPa]", fontsize=16)
+    ax.set_title("Compression", fontsize=16)
+    ax.tick_params(labelsize=16)
+    ax.legend(fontsize=16)
+    ax.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(output_dir, "Compression.pdf"), format='pdf', bbox_inches='tight')
+    # plt.show()
+
+    ## Confined compression plot
+    fig, ax = plt.subplots(figsize=(8,6))
+    for foam_idx in range(n_materials):
+        ax.plot(stretch_conf_com[:, foam_idx], stress_conf_com[:, foam_idx], colors[foam_idx], label=f"{foam_types[foam_idx]}")
+        ax.plot(stretch_conf_com_table, stress_conf_com_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
+        ax.fill_between(stretch_conf_com[:, foam_idx],
+                         stress_conf_com[:, foam_idx] - stress_conf_com_std[:, foam_idx],
+                         stress_conf_com[:, foam_idx] + stress_conf_com_std[:, foam_idx],
+                         color=colors[foam_idx], alpha=0.25)
+    # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
+    ax.invert_xaxis()
+    ax.invert_yaxis()
+    ax.set_xlabel("Stretch", fontsize=16)
+    ax.set_ylabel("Stress [kPa]", fontsize=16)
+    ax.set_title("Confined Compression", fontsize=16)
+    ax.tick_params(labelsize=16)
+    ax.legend(fontsize=16)
+    ax.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "ConfinedCompression.pdf"), format='pdf', bbox_inches='tight')
+    # plt.show()
 
     # Shear plot
     plt.figure(figsize=(8,6))
     for foam_idx in range(n_materials):
-        plt.plot(strain_shr[:, foam_idx], stress_shr[:, foam_idx], colors[foam_idx], label=f"{foam} mean")
+        plt.plot(strain_shr[:, foam_idx], stress_shr[:, foam_idx], colors[foam_idx], label=f"{foam_types[foam_idx]}")
         plt.plot(strain_shr_table, stress_shr_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
         plt.fill_between(strain_shr[:, foam_idx],
                          stress_shr[:, foam_idx] - stress_shr_std[:, foam_idx],
                          stress_shr[:, foam_idx] + stress_shr_std[:, foam_idx],
                          color=colors[foam_idx], alpha=0.25)
-    plt.xlabel("Shear Strain [-]")
-    plt.ylabel("Shear Stress [kPa]")
-    plt.title("Shear")
-    plt.legend()
+    plt.xlabel("Shear Strain [-]", fontsize=16)
+    plt.ylabel("Shear Stress [kPa]", fontsize=16)
+    plt.title("Shear", fontsize=16)
+    plt.tick_params(labelsize=16)
+    plt.legend(fontsize=16)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(output_dir, "Shear.pdf"), format='pdf', bbox_inches='tight')
+    # plt.show()
 
-    exit()
-    # ---------- Write to LaTeX (strings) ----------
+    # --- 3x5 Subplot Figures: Individual Samples (one per material) ---
+    # 3 rows: Tension, Compression, Shear, Confined Compression
+    # 5 columns: Sample 1, Sample 2, Sample 3, Sample 4, Sample 5
+    # Create a separate figure for each material
+    for foam_idx in range(n_materials):
+        fig, axes = plt.subplots(4, 5, figsize=(20, 12))
+        fig.suptitle(f'{foam_types[foam_idx]} - Individual Samples', fontsize=16, fontweight='bold')
+        
+        # Compute axis limits for each test type (to make all samples in a row have same scale)
+        # Tension limits
+        ten_x_min, ten_x_max, ten_y_min, ten_y_max = np.inf, -np.inf, np.inf, -np.inf
+        for sample_idx in range(len(individual_samples_tension[foam_idx])):
+            sample_data = individual_samples_tension[foam_idx][sample_idx]
+            ten_x_min = min(ten_x_min, np.nanmin(sample_data['stretch']))
+            ten_x_max = max(ten_x_max, np.nanmax(sample_data['stretch']))
+            ten_y_min = min(ten_y_min, np.nanmin(sample_data['stress']))
+            ten_y_max = max(ten_y_max, np.nanmax(sample_data['stress']))
+        
+        # Compression limits
+        com_x_min, com_x_max, com_y_min, com_y_max = np.inf, -np.inf, np.inf, -np.inf
+        for sample_idx in range(len(individual_samples_compression[foam_idx])):
+            sample_data = individual_samples_compression[foam_idx][sample_idx]
+            com_x_min = min(com_x_min, np.nanmin(sample_data['stretch']))
+            com_x_max = max(com_x_max, np.nanmax(sample_data['stretch']))
+            com_y_min = min(com_y_min, np.nanmin(sample_data['stress']))
+            com_y_max = max(com_y_max, np.nanmax(sample_data['stress']))
+
+        # Confined compression limits
+        conf_com_x_min, conf_com_x_max, conf_com_y_min, conf_com_y_max = np.inf, -np.inf, np.inf, -np.inf
+        for sample_idx in range(len(individual_samples_conf_compression[foam_idx])):
+            sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
+            conf_com_x_min = min(conf_com_x_min, np.nanmin(sample_data['stretch']))
+            conf_com_x_max = max(conf_com_x_max, np.nanmax(sample_data['stretch']))
+            conf_com_y_min = min(conf_com_y_min, np.nanmin(sample_data['stress']))
+            conf_com_y_max = max(conf_com_y_max, np.nanmax(sample_data['stress']))
+        
+        # Shear limits
+        shr_x_min, shr_x_max, shr_y_min, shr_y_max = np.inf, -np.inf, np.inf, -np.inf
+        for sample_idx in range(len(individual_samples_shear[foam_idx])):
+            sample_data = individual_samples_shear[foam_idx][sample_idx]
+            shr_x_min = min(shr_x_min, np.nanmin(sample_data['strain']))
+            shr_x_max = max(shr_x_max, np.nanmax(sample_data['strain']))
+            shr_y_min = min(shr_y_min, np.nanmin(sample_data['stress']))
+            shr_y_max = max(shr_y_max, np.nanmax(sample_data['stress']))
+        
+        # Row 1: Tension
+        for sample_idx in range(5):  # Columns 0-4 for samples 1-5
+            ax = axes[0, sample_idx]
+            if sample_idx < len(individual_samples_tension[foam_idx]):
+                sample_data = individual_samples_tension[foam_idx][sample_idx]
+                ax.plot(sample_data['stretch'], sample_data['stress'], 
+                       colors[foam_idx], linewidth=1.5)
+            ax.set_xlabel("Stretch", fontsize=16)
+            ax.set_ylabel("Stress [kPa]", fontsize=16)
+            ax.set_title(f"Tension - Sample {sample_idx + 1}", fontsize=16)
+            ax.tick_params(labelsize=16)
+            ax.grid(True, alpha=0.3)
+            # Set identical axis limits for all tension subplots
+            if ten_x_max > ten_x_min and ten_y_max > ten_y_min:
+                ax.set_xlim(1.0, 1.3)
+                ax.set_ylim(ten_y_min, ten_y_max)
+        
+        # Row 2: Compression
+        for sample_idx in range(5):  # Columns 0-4 for samples 1-5
+            ax = axes[1, sample_idx]
+            if sample_idx < len(individual_samples_compression[foam_idx]):
+                sample_data = individual_samples_compression[foam_idx][sample_idx]
+                ax.plot(sample_data['stretch'], sample_data['stress'], 
+                       colors[foam_idx], linewidth=1.5)
+            # Flip both axes for compression
+
+            ax.set_xlabel("Stretch", fontsize=16)
+            ax.set_ylabel("Stress [kPa]", fontsize=16)
+            ax.set_title(f"Compression - Sample {sample_idx + 1}", fontsize=16)
+            ax.tick_params(labelsize=16)
+            ax.grid(True, alpha=0.3)
+            # Set identical axis limits for all compression subplots
+            if com_x_max > com_x_min and com_y_max > com_y_min:
+                ax.set_xlim(com_x_min, com_x_max)
+                ax.set_ylim(com_y_min, com_y_max)
+            ax.invert_xaxis()
+            ax.invert_yaxis()
+        
+        # Row 3: Shear
+        for sample_idx in range(5):  # Columns 0-4 for samples 1-5
+            ax = axes[2, sample_idx]
+            if sample_idx < len(individual_samples_shear[foam_idx]):
+                sample_data = individual_samples_shear[foam_idx][sample_idx]
+                # Plot both positive and negative values
+                ax.plot(sample_data['strain'], 
+                       sample_data['stress'], 
+                       colors[foam_idx], linewidth=1.5)
+            ax.set_xlabel("Shear Strain [-]", fontsize=16)
+            ax.set_ylabel("Shear Stress [kPa]", fontsize=16)
+            ax.set_title(f"Shear - Sample {sample_idx + 1}", fontsize=16)
+            ax.tick_params(labelsize=16)
+            ax.grid(True, alpha=0.3)
+            # Set identical axis limits for all shear subplots
+            if shr_x_max > shr_x_min and shr_y_max > shr_y_min:
+                ax.set_xlim(shr_x_min, shr_x_max)
+                ax.set_ylim(shr_y_min, shr_y_max)
+        
+        # Row 4: Confined Compression
+        for sample_idx in range(5):  # Columns 0-4 for samples 1-5
+            ax = axes[3, sample_idx]
+            if sample_idx < len(individual_samples_conf_compression[foam_idx]):
+                sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
+                ax.plot(sample_data['stretch'], sample_data['stress'], 
+                       colors[foam_idx], linewidth=1.5)
+            ax.set_xlabel("Stretch", fontsize=16)
+            ax.set_ylabel("Stress [kPa]", fontsize=16)
+            ax.set_title(f"Confined Compression - Sample {sample_idx + 1}", fontsize=16)
+            ax.tick_params(labelsize=16)
+            ax.grid(True, alpha=0.3)
+            # Set identical axis limits for all confined compression subplots
+            if conf_com_x_max > conf_com_x_min and conf_com_y_max > conf_com_y_min:
+                ax.set_xlim(conf_com_x_min, conf_com_x_max)
+                ax.set_ylim(conf_com_y_min, conf_com_y_max)
+            ax.invert_xaxis()
+            ax.invert_yaxis()
+        
+        plt.tight_layout()
+        # Save figure with material name
+        filename = f"{foam_types[foam_idx]}_individual_samples.pdf"
+        plt.savefig(os.path.join(output_dir, filename), format='pdf', bbox_inches='tight')
+        # plt.show()
+
     stress_ten_kPa = stress_ten.copy()
     stress_com_kPa = np.abs(stress_com)
     stress_shr_kPa = stress_shr.copy()
@@ -638,7 +901,7 @@ def main():
     df_out = pd.DataFrame(np.column_stack(data_cols), columns=headings)
     out_dir = "./input"
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "FoamData2.xlsx")
+    out_path = os.path.join(out_dir, "FoamData.xlsx")
     df_out.to_excel(out_path, index=False)
     print(f"Wrote output excel to: {out_path}")
 

@@ -399,7 +399,7 @@ def extract_term_contributions(model, stretch_input, gamma_input):
     
     # Get the actual number of terms from the weight shape
     num_terms = original_weights.shape[0]
-    
+
     # Build term names dynamically based on the structure
     # For StrainEnergyCANN: 4 I1 terms, 4 I2 terms, 3 J terms, 2 Mixed terms (total = 13)
     if SinglePrincipalStretch_model is None:
@@ -410,7 +410,7 @@ def extract_term_contributions(model, stretch_input, gamma_input):
             term_names.extend(["I2", "exp(I2)-1", "I2²", "exp(I2²)-1"])
         if num_terms >= 11:
             term_names.extend(["Jᵐ - m ln(J)", "ln(J)²", "exp(ln(J)²)"])
-        if num_terms >= 13:
+        if num_terms > 11:
             term_names.extend(["I1·J", "I2·J"])
         
         # If there are more or fewer terms than expected, adjust
@@ -660,18 +660,19 @@ def modelArchitecturePrincipalStretch(Psi_model):
 
 
 #%% Init
-train = True
+train = False
 epochs = 20000
 batch_size = 64
-model_type = 'CANN_test'
+model_type = 'no_mixed_terms'
 weight_flag = True
 principal_stretch_flag = False
-mixed_flag = True
+mixed_flag = False
 zero_trans_tension_flag = True
-weight_std_flag = True
+weight_std_flag = False
+no_I2_flag = False
 
 # L1 regularization strength
-l1_reg = 0.0
+l1_reg = 0.1
 
 
 
@@ -684,8 +685,8 @@ Model_summary = path2saveResults_0 + '/Model_summary.txt'
 # #modelFit_mode_all = ['SS', 'C', 'T', 'TC', "TC_and_SS"]
         
 modelFit_mode_all = ["TC_and_SS"] 
-# Region_all = ['leap', 'turbo']
-Region_all = ['leap']
+Region_all = ['leap', 'turbo']
+# Region_all = ['leap']
 
 # prepare R2 array
 R2_all = np.zeros([len(Region_all),len(modelFit_mode_all)+2])
@@ -720,7 +721,7 @@ for id1, Region in enumerate(Region_all):
             Psi_model, terms = StrainEnergyPrincipalStretch(l1_reg)
             Psi_model, model = modelArchitecturePrincipalStretch(Psi_model)
         else:   
-            Psi_model, terms = StrainEnergyCANN(l1_reg, include_mixed=mixed_flag)
+            Psi_model, terms = StrainEnergyCANN(l1_reg, include_mixed=mixed_flag, no_I2_flag=no_I2_flag)
             Psi_model, model = modelArchitecture(Psi_model)
 
         
@@ -733,7 +734,6 @@ for id1, Region in enumerate(Region_all):
 
         
         model_given, input_train, output_train, sample_weights = traindata(modelFit_mode, zero_trans_tension=zero_trans_tension_flag, weight_std=weight_std_flag)
-        print(sample_weights)
             
         Save_path = path2saveResults + '/model.keras'
         Save_weights = path2saveResults + '/weights.weights.h5'
@@ -768,105 +768,50 @@ for id1, Region in enumerate(Region_all):
             
         
         # PI-CANN  get model response
-        lam_ut_model = np.linspace(np.amin(lam_ut),np.amax(lam_ut),50)
-        gamma_model = np.linspace(np.amin(gamma_ss),np.amax(gamma_ss),50)
+        lam_ut_model = np.linspace(np.amin(lam_ut),np.amax(lam_ut),200)
+        gamma_model = np.linspace(np.amin(gamma_ss),np.amax(gamma_ss),200)
 
 
 
         # PI-CANN get model response at data points
-
         Stress_predict_axial, Stress_predict_trans, _, _ = model.predict([lam_ut, gamma_ss * 0.0])
         _, _, Stress_predict_shear, _ = model.predict([lam_ut * 0 + 0.8, gamma_ss])
-
-
-        # print(Stress_predict_axial)
-        # print(Stress_predict_trans)
-        # print(Stress_predict_shear)
-        # exit()
-
 
         # Extract individual term contributions at data points
         stress_contributions, term_names = extract_term_contributions(model, lam_ut, gamma_ss * 0.0)
 
-        # print(lam_ut)
-        # exit()
-
-        # Build denser grids for smoother curves
-        # Convert to NumPy arrays to avoid pandas label-based indexing (e.g., lam_ut[-1])
-        lam_ut_np = np.asarray(lam_ut).reshape(-1)
-        gamma_ss_np = np.asarray(gamma_ss).reshape(-1)
-        midpoint = int(len(lam_ut_np) / 2)
-        n_dense = max(200, len(lam_ut_np) * 5)
-
-        # Dense grids for compression and tension (separately)
-        lam_dense_comp = np.linspace(lam_ut_np[0], lam_ut_np[midpoint], n_dense)
-        lam_dense_tens = np.linspace(lam_ut_np[midpoint], lam_ut_np[-1], n_dense)
-        gamma_zeros_comp = np.zeros_like(lam_dense_comp)
-        gamma_zeros_tens = np.zeros_like(lam_dense_tens)
-
-        # Ensure correct shapes (N,1) and dtypes for dense arrays
-        lam_dense_comp_in = lam_dense_comp.astype(np.float32).reshape(-1, 1)
-        gamma_zeros_comp_in = gamma_zeros_comp.astype(np.float32).reshape(-1, 1)
-
-        # Dense predictions and contributions for compression
-        # Use numpy arrays with explicit shape (N,1) and dtype float32
-        Stress_axial_dense_comp, _, _, _ = model([lam_dense_comp_in, gamma_zeros_comp_in], training=False)
-        stress_contrib_dense_comp, _ = extract_term_contributions(model, lam_dense_comp_in, gamma_zeros_comp_in)
-
-        # Dense predictions and contributions for tension
-        lam_dense_tens_in = lam_dense_tens.astype(np.float32).reshape(-1, 1)
-        gamma_zeros_tens_in = gamma_zeros_tens.astype(np.float32).reshape(-1, 1)
-        Stress_axial_dense_tens, _, _, _ = model([lam_dense_tens_in, gamma_zeros_tens_in], training=False)
-        stress_contrib_dense_tens, _ = extract_term_contributions(model, lam_dense_tens_in, gamma_zeros_tens_in)
-
-        # Dense grid for shear (positive half only)
-        gamma_mid = len(gamma_ss_np) // 2
-        gamma_dense_pos = np.linspace(gamma_ss_np[gamma_mid], gamma_ss_np[-1], n_dense)
-        lam_const = np.zeros_like(gamma_dense_pos) + 0.8
-        lam_const_in = lam_const.astype(np.float32).reshape(-1, 1)
-        gamma_dense_pos_in = gamma_dense_pos.astype(np.float32).reshape(-1, 1)
-        _, _, Stress_shear_dense_pos, _ = model([lam_const_in, gamma_dense_pos_in], training=False)
-        stress_contrib_shear_dense_pos, _ = extract_shear_term_contributions(model, lam_const_in, gamma_dense_pos_in)
-        
-        
         #%% Plotting - Create both old combined plot and new separate plots
         
         # Original combined plot (keep the old functionality)
         fig = plt.figure(figsize=(600/72,600/72))
-        spec = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
-        fig_ax1 = fig.add_subplot(spec[0,0])
-        ax2 = fig.add_subplot(spec[1,0])
-        ax3 = fig.add_subplot(spec[2,0])
+        spec = gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
+        ax1 = fig.add_subplot(spec[0,0])
+        # ax2 = fig.add_subplot(spec[1,0])
+        # ax3 = fig.add_subplot(spec[2,0])
 
-        R2, R2_c, R2_t = plotTenCom(fig_ax1, lam_ut, P_ut, Stress_predict_axial, Region)
-        plotTrans(ax3, lam_ut, P_ut * 0.0, Stress_predict_trans, Region)
-        R2ss = plotShear(ax2, gamma_ss, P_ss, Stress_predict_shear, Region)
+        # R2, R2_c, R2_t = plotTenCom(fig_ax1, lam_ut, P_ut, Stress_predict_axial, Region)
+        plotTrans(ax1, lam_ut, P_ut * 0.0, Stress_predict_trans, Region)
+        # R2ss = plotShear(ax2, gamma_ss, P_ss, Stress_predict_shear, Region)
         fig.tight_layout()        
 
-        plt.savefig(path2saveResults+'/Plot_PI-CANN_'+Region+'_'+modelFit_mode+'.pdf')
+        plt.savefig(path2saveResults+'/Plot_Trans_'+Region+'_'+modelFit_mode+'.pdf')
         plt.close()
         
         # New separate plots with stacked contributions
         
         # 1. Tension plot
-        fig_tension, R2_t_new = plotTensionWithContributions(
+        fig_tension, R2_t = plotTensionWithContributions(
             lam_ut, P_ut, Stress_predict_axial,
-            stress_contributions, term_names, Region,
-            lam_curve=lam_dense_tens,
-            stress_curve=Stress_axial_dense_tens,
-            contribs_curve=stress_contrib_dense_tens
+            stress_contributions, term_names, Region
         )
         plt.savefig(path2saveResults+'/Plot_Tension_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
                    bbox_inches='tight', dpi=300)
         plt.close()
         
         # 2. Compression plot
-        fig_compression, R2_c_new = plotCompressionWithContributions(
+        fig_compression, R2_c = plotCompressionWithContributions(
             lam_ut, P_ut, Stress_predict_axial,
-            stress_contributions, term_names, Region,
-            lam_curve=lam_dense_comp,
-            stress_curve=Stress_axial_dense_comp,
-            contribs_curve=stress_contrib_dense_comp
+            stress_contributions, term_names, Region
         )
         plt.savefig(path2saveResults+'/Plot_Compression_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
                    bbox_inches='tight', dpi=300)
@@ -874,12 +819,9 @@ for id1, Region in enumerate(Region_all):
         
         # 3. Shear plot - need to extract contributions for shear case
         stress_contributions_shear, _ = extract_shear_term_contributions(model, lam_ut * 0 + 0.8, gamma_ss)
-        fig_shear, R2ss_new = plotShearWithContributions(
+        fig_shear, R2ss = plotShearWithContributions(
             gamma_ss, P_ss, Stress_predict_shear,
-            stress_contributions_shear, term_names, Region,
-            gamma_curve=gamma_dense_pos,
-            stress_curve=Stress_shear_dense_pos,
-            contribs_curve=stress_contrib_shear_dense_pos
+            stress_contributions_shear, term_names, Region
         )
         plt.savefig(path2saveResults+'/Plot_Shear_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
                    bbox_inches='tight', dpi=300)
@@ -931,7 +873,7 @@ for id1, Region in enumerate(Region_all):
         
         #%% Plotting
         
-        Config = {Region:Region, modelFit_mode:modelFit_mode, "R2_c":R2_c, "R2_t": R2_t, "R2_TC": R2, "R2_ss": R2ss, "weigths": weight_matrix.tolist()}
+        Config = {Region:Region, modelFit_mode:modelFit_mode, "R2_c":R2_c, "R2_t": R2_t, "R2_ss": R2ss, "weigths": weight_matrix.tolist()}
         json.dump(Config, open(path2saveResults+"/Config_file.txt",'w'))
         
         if modelFit_mode == 'T':

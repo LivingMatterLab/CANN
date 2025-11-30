@@ -445,24 +445,22 @@ def SinglePrincipalStretchNet(lambda_in, idi, L1):
     return collect_out
 
 
-def MixedNet(I1_ref, I2_ref, J_in, idi, L1):
+def MixedNet(I1_ref, I2_ref, J_in, idi, L1, no_I2_flag=False):
     logJ = keras.layers.Lambda(lambda x: tf.math.log(x))(J_in)
 
-    # Layer 1. order
     I1_coefficient = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
                                  kernel_regularizer=regularizers.l1(L1),
                                  use_bias=False, activation=Exp, name='w' + str(1 + idi) + '1')(logJ) # Raising to a power
     I1_term = keras.layers.Lambda(lambda x: x[0] * x[1])([I1_ref, I1_coefficient])
 
-    I2_coefficient = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
+    if no_I2_flag:
+        collect = [I1_term]
+    else:
+        I2_coefficient = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
                                  kernel_regularizer=regularizers.l1(L1),
                                  use_bias=False, activation=Exp, name='w' + str(2 + idi) + '1')(logJ) # Raising to a power
-    I2_term = keras.layers.Lambda(lambda x: x[0] * x[1])([I2_ref, I2_coefficient])
-
-    # collect = [I1_term, I2_term]
-    collect = [I1_term]
-    # collect_out = tf.keras.layers.concatenate(collect, axis=1)
-    
+        I2_term = keras.layers.Lambda(lambda x: x[0] * x[1])([I2_ref, I2_coefficient])   
+        collect = [I1_term, I2_term]
     
     return collect
 
@@ -485,7 +483,7 @@ def SingleInvNetMix(I1_ref):
     return collect_out
 
 
-def StrainEnergyCANN(l1_reg=0.01, include_mixed=False):
+def StrainEnergyCANN(l1_reg=0.01, include_mixed=False, no_I2_flag=False):
 
     # Inputs defined
     I1_in = tf.keras.Input(shape=(1,), name='I1')
@@ -504,7 +502,7 @@ def StrainEnergyCANN(l1_reg=0.01, include_mixed=False):
     J_out = BulkNet(J_in, terms, l1_reg)
     terms += J_out.shape[1]
     if include_mixed:
-        Mixed_out = MixedNet(I1_ref, I2_ref, J_in, terms, l1_reg) # This output is a list of 2 tensors instead of a single tensor that was concatenated
+        Mixed_out = MixedNet(I1_ref, I2_ref, J_in, terms, l1_reg, no_I2_flag) # This output is a list of 2 tensors instead of a single tensor that was concatenated
         terms += len(Mixed_out)
     else:
         Mixed_out = []
