@@ -22,6 +22,9 @@ foam_types = ["leap", "turbo"]
 n_pts_table = 13
 n_pts_plt = 101
 
+# Global font size for all plot text elements
+FONT_SIZE = 20
+
 # helper to ensure consistent float printing in latex composer
 def fmt_fixed2(x):
     return f"{x:.2f}"
@@ -88,7 +91,6 @@ def average_curves(x, y, n_cycles, n_pts, min_peak_dist, loading_mode, max_strai
     # find minima by finding peaks in offset - x
     inverted = offset_val - x
     minima_idx, _ = find_peaks(inverted, distance=min_peak_dist, height=0)
-
     # For constructing segment boundaries we try to follow MATLAB logic.
     # Identify maxima and minima sequences, and choose start.
     # If too few peaks are found, fallback to simple segmentation (start=0, end=end)
@@ -579,11 +581,11 @@ def main():
                          stress_ten[:, foam_idx] + stress_ten_std[:, foam_idx],
                          color=colors[foam_idx], alpha=0.25)
     plt.xlim([1.0, 1.3])
-    plt.xlabel("Stretch [-]", fontsize=16)
-    plt.ylabel("Stress [kPa]", fontsize=16)
-    plt.title("Tension", fontsize=16)
-    plt.tick_params(labelsize=16)
-    plt.legend(fontsize=16)
+    plt.xlabel("Stretch [-]", fontsize=FONT_SIZE)
+    plt.ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+    plt.title("Tension", fontsize=FONT_SIZE)
+    plt.tick_params(labelsize=FONT_SIZE)
+    plt.legend(fontsize=FONT_SIZE)
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "Tension.pdf"), format='pdf', bbox_inches='tight')
@@ -601,11 +603,11 @@ def main():
     # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
     ax.invert_xaxis()
     ax.invert_yaxis()
-    ax.set_xlabel("Stretch", fontsize=16)
-    ax.set_ylabel("Stress [kPa]", fontsize=16)
-    ax.set_title("Compression", fontsize=16)
-    ax.tick_params(labelsize=16)
-    ax.legend(fontsize=16)
+    ax.set_xlabel("Stretch", fontsize=FONT_SIZE)
+    ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+    ax.set_title("Compression", fontsize=FONT_SIZE)
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.legend(fontsize=FONT_SIZE)
     ax.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "Compression.pdf"), format='pdf', bbox_inches='tight')
@@ -623,11 +625,11 @@ def main():
     # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
     ax.invert_xaxis()
     ax.invert_yaxis()
-    ax.set_xlabel("Stretch", fontsize=16)
-    ax.set_ylabel("Stress [kPa]", fontsize=16)
-    ax.set_title("Confined Compression", fontsize=16)
-    ax.tick_params(labelsize=16)
-    ax.legend(fontsize=16)
+    ax.set_xlabel("Stretch", fontsize=FONT_SIZE)
+    ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+    ax.set_title("Confined Compression", fontsize=FONT_SIZE)
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.legend(fontsize=FONT_SIZE)
     ax.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "ConfinedCompression.pdf"), format='pdf', bbox_inches='tight')
@@ -642,11 +644,11 @@ def main():
                          stress_shr[:, foam_idx] - stress_shr_std[:, foam_idx],
                          stress_shr[:, foam_idx] + stress_shr_std[:, foam_idx],
                          color=colors[foam_idx], alpha=0.25)
-    plt.xlabel("Shear Strain [-]", fontsize=16)
-    plt.ylabel("Shear Stress [kPa]", fontsize=16)
-    plt.title("Shear", fontsize=16)
-    plt.tick_params(labelsize=16)
-    plt.legend(fontsize=16)
+    plt.xlabel("Shear Strain [-]", fontsize=FONT_SIZE)
+    plt.ylabel("Shear Stress [kPa]", fontsize=FONT_SIZE)
+    plt.title("Shear", fontsize=FONT_SIZE)
+    plt.tick_params(labelsize=FONT_SIZE)
+    plt.legend(fontsize=FONT_SIZE)
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "Shear.pdf"), format='pdf', bbox_inches='tight')
@@ -658,7 +660,7 @@ def main():
     # Create a separate figure for each material
     for foam_idx in range(n_materials):
         fig, axes = plt.subplots(4, 5, figsize=(20, 12))
-        fig.suptitle(f'{foam_types[foam_idx]} - Individual Samples', fontsize=16, fontweight='bold')
+        fig.suptitle(f'{foam_types[foam_idx]} - Individual Samples', fontsize=FONT_SIZE, fontweight='bold')
         
         # Compute axis limits for each test type (to make all samples in a row have same scale)
         # Tension limits
@@ -704,10 +706,10 @@ def main():
                 sample_data = individual_samples_tension[foam_idx][sample_idx]
                 ax.plot(sample_data['stretch'], sample_data['stress'], 
                        colors[foam_idx], linewidth=1.5)
-            ax.set_xlabel("Stretch", fontsize=16)
-            ax.set_ylabel("Stress [kPa]", fontsize=16)
-            ax.set_title(f"Tension - Sample {sample_idx + 1}", fontsize=16)
-            ax.tick_params(labelsize=16)
+            ax.set_xlabel("Stretch", fontsize=FONT_SIZE)
+            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+            ax.set_title(f"Tension - Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+            ax.tick_params(labelsize=FONT_SIZE)
             ax.grid(True, alpha=0.3)
             # Set identical axis limits for all tension subplots
             if ten_x_max > ten_x_min and ten_y_max > ten_y_min:
@@ -723,10 +725,10 @@ def main():
                        colors[foam_idx], linewidth=1.5)
             # Flip both axes for compression
 
-            ax.set_xlabel("Stretch", fontsize=16)
-            ax.set_ylabel("Stress [kPa]", fontsize=16)
-            ax.set_title(f"Compression - Sample {sample_idx + 1}", fontsize=16)
-            ax.tick_params(labelsize=16)
+            ax.set_xlabel("Stretch", fontsize=FONT_SIZE)
+            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+            ax.set_title(f"Compression - Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+            ax.tick_params(labelsize=FONT_SIZE)
             ax.grid(True, alpha=0.3)
             # Set identical axis limits for all compression subplots
             if com_x_max > com_x_min and com_y_max > com_y_min:
@@ -744,10 +746,10 @@ def main():
                 ax.plot(sample_data['strain'], 
                        sample_data['stress'], 
                        colors[foam_idx], linewidth=1.5)
-            ax.set_xlabel("Shear Strain [-]", fontsize=16)
-            ax.set_ylabel("Shear Stress [kPa]", fontsize=16)
-            ax.set_title(f"Shear - Sample {sample_idx + 1}", fontsize=16)
-            ax.tick_params(labelsize=16)
+            ax.set_xlabel("Shear Strain [-]", fontsize=FONT_SIZE)
+            ax.set_ylabel("Shear Stress [kPa]", fontsize=FONT_SIZE)
+            ax.set_title(f"Shear - Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+            ax.tick_params(labelsize=FONT_SIZE)
             ax.grid(True, alpha=0.3)
             # Set identical axis limits for all shear subplots
             if shr_x_max > shr_x_min and shr_y_max > shr_y_min:
@@ -761,10 +763,10 @@ def main():
                 sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
                 ax.plot(sample_data['stretch'], sample_data['stress'], 
                        colors[foam_idx], linewidth=1.5)
-            ax.set_xlabel("Stretch", fontsize=16)
-            ax.set_ylabel("Stress [kPa]", fontsize=16)
-            ax.set_title(f"Confined Compression - Sample {sample_idx + 1}", fontsize=16)
-            ax.tick_params(labelsize=16)
+            ax.set_xlabel("Stretch", fontsize=FONT_SIZE)
+            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+            ax.set_title(f"Confined Compression - Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+            ax.tick_params(labelsize=FONT_SIZE)
             ax.grid(True, alpha=0.3)
             # Set identical axis limits for all confined compression subplots
             if conf_com_x_max > conf_com_x_min and conf_com_y_max > conf_com_y_min:
@@ -904,6 +906,16 @@ def main():
     out_path = os.path.join(out_dir, "FoamData.xlsx")
     df_out.to_excel(out_path, index=False)
     print(f"Wrote output excel to: {out_path}")
+
+    #### Print strain energies for paper
+    mean_tensile_stress = np.mean(stress_ten[:, 0])
+    comp_stretch_min = 0.65
+    ten_stretch_max = np.max(stretch_ten[:, 0])
+    mean_compressive_stress = np.mean(stress_com[stretch_com[:, 0] > comp_stretch_min, 0])
+    strain_energy_tensile = mean_tensile_stress * (ten_stretch_max - 1.0)
+    strain_energy_compressive = mean_compressive_stress * (1 - comp_stretch_min)
+    print(f"Strain energy (tensile): {strain_energy_tensile:.2f} kJ/m^3")
+    print(f"Strain energy (compressive): {strain_energy_compressive:.2f} kJ/m^3")
 
 if __name__ == "__main__":
     main()

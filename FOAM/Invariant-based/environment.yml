@@ -10,5 +10,6 @@ dependencies:
   - numpy = 2.3.3
   - scikit-learn = 1.7.2
   - openpyxl = 3.1.5
+  - sympy = 1.13.3
   - pip:
     - tensorflow == 2.20.0

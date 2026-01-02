@@ -21,6 +21,9 @@ from sklearn.metrics import r2_score
 ColorI = [1.0, 0.65, 0.0]
 ColorS = [0.5, 0.00, 0.0]
 
+# Global font size for all plot text elements
+FONT_SIZE = 20
+
 
 #%% Uts
 def r2_score_own(Truth, Prediction):
@@ -34,10 +37,10 @@ def plotLoss(axe, history):
     axe.plot(history)
     # plt.plot(history.history['val_loss'])
     axe.set_yscale('log')
-    plt.title('model loss', fontsize=16)
-    plt.ylabel('loss', fontsize=16)
-    plt.xlabel('epoch', fontsize=16)
-    axe.tick_params(labelsize=16)
+    plt.title('model loss', fontsize=FONT_SIZE)
+    plt.ylabel('loss', fontsize=FONT_SIZE)
+    plt.xlabel('epoch', fontsize=FONT_SIZE)
+    axe.tick_params(labelsize=FONT_SIZE)
     # plt.legend(['train', 'val'], loc='upper left')
 
 
@@ -46,17 +49,17 @@ def plotActi(axe, CANN_i1, CANN_i2, R2):
     axe.plot(CANN_i2, label='I2', zorder=5, color='grey', ls='dashed', lw=2)
     # plt.plot(history.history['val_loss'])
     # axe.set_yscale('log')
-    plt.title('model loss', fontsize=16)
-    plt.ylabel('Actication', fontsize=16)
-    plt.xlabel('epoch', fontsize=16)
-    axe.tick_params(labelsize=16)
+    plt.title('model loss', fontsize=FONT_SIZE)
+    plt.ylabel('Actication', fontsize=FONT_SIZE)
+    plt.xlabel('epoch', fontsize=FONT_SIZE)
+    axe.tick_params(labelsize=FONT_SIZE)
     
     # twin object for two different y-axis on the sample plot
     ax2=axe.twinx()
     # make a plot with different y-axis using second axis object
     ax2.plot(R2, color="blue",lw=2)
-    ax2.set_ylabel(r"$R^2$ [-]",color="blue",fontsize=16)
-    ax2.tick_params(labelsize=16)
+    ax2.set_ylabel(r"$R^2$ [-]",color="blue",fontsize=FONT_SIZE)
+    ax2.tick_params(labelsize=FONT_SIZE)
         
     ax2.set_ylim(-0.05,1.05)
     
@@ -69,18 +72,18 @@ def plotActi(axe, CANN_i1, CANN_i2, R2):
     
 def plotTenCom(fig_ax1, lam_ut_all, P_ut_all, Stress_predict_UT, Region):
     fig_ax1.scatter(lam_ut_all, P_ut_all,s=70, zorder=5,lw=2.5, facecolors='none', edgecolors='k',alpha=0.7,label=Region+ ' compression/tension data')
-    fig_ax1.set_ylabel(r'nominal stress $P$ [kPa]',fontsize=16)
-    fig_ax1.set_xlabel(r'stretch $\lambda$ [-]',fontsize=16)
+    fig_ax1.set_ylabel(r'nominal stress $P$ [kPa]',fontsize=FONT_SIZE)
+    fig_ax1.set_xlabel(r'stretch $\lambda$ [-]',fontsize=FONT_SIZE)
     fig_ax1.plot(lam_ut_all, Stress_predict_UT, label='model',zorder=5, lw=2,color=ColorI);
     
     R2_c = r2_score_own(P_ut_all[:17], Stress_predict_UT[:17])
     R2_t = r2_score_own(P_ut_all[16:], Stress_predict_UT[16:])
     R2 = r2_score_own(P_ut_all, Stress_predict_UT)
     
-    fig_ax1.text(0.85,0.25,r'$R^2$: '+f"{R2:.3f}",transform=fig_ax1.transAxes,fontsize=16, horizontalalignment='left',color='k')
-    fig_ax1.text(0.85,0.15,r'$R_{t}^2$: '+f"{R2_t:.3f}",transform=fig_ax1.transAxes,fontsize=16, horizontalalignment='left',color='k')
-    fig_ax1.text(0.85,0.05,r'$R_{c}^2$: '+f"{R2_c:.3f}",transform=fig_ax1.transAxes,fontsize=16, horizontalalignment='left',color='k')
-    fig_ax1.tick_params(labelsize=16)
+    fig_ax1.text(0.85,0.25,r'$R^2$: '+f"{R2:.3f}",transform=fig_ax1.transAxes,fontsize=FONT_SIZE, horizontalalignment='left',color='k')
+    fig_ax1.text(0.85,0.15,r'$R_{t}^2$: '+f"{R2_t:.3f}",transform=fig_ax1.transAxes,fontsize=FONT_SIZE, horizontalalignment='left',color='k')
+    fig_ax1.text(0.85,0.05,r'$R_{c}^2$: '+f"{R2_c:.3f}",transform=fig_ax1.transAxes,fontsize=FONT_SIZE, horizontalalignment='left',color='k')
+    fig_ax1.tick_params(labelsize=FONT_SIZE)
     
     
     # fig_ax1.set_yticks([-1.20, -0.60, -0.30, 0.00, 0.30])
@@ -89,7 +92,7 @@ def plotTenCom(fig_ax1, lam_ut_all, P_ut_all, Stress_predict_UT, Region):
     # fig_ax1.set_xlim(0.895,1.105)
     
     # plt.tight_layout()
-    fig_ax1.legend(loc='upper left', fancybox=True, framealpha=0.,fontsize=16)
+    fig_ax1.legend(loc='upper left', fancybox=True, framealpha=0.,fontsize=FONT_SIZE)
     
     return R2, R2_c, R2_t
 
@@ -99,12 +102,12 @@ def plotTenCom(fig_ax1, lam_ut_all, P_ut_all, Stress_predict_UT, Region):
 def plotShear(ax2, gamma_ss, P_ss, Stress_predict_SS, Region):
     
     ax2.scatter(gamma_ss, P_ss,s=70, zorder=5,lw=2.5, facecolors='none', edgecolors='k',alpha=0.7,label=Region+' simple shear data')
-    ax2.set_ylabel(r'shear stress [kPa]',fontsize=16)
-    ax2.set_xlabel(r'amount of shear $gamma$ [-]',fontsize=16)
+    ax2.set_ylabel(r'shear stress [kPa]',fontsize=FONT_SIZE)
+    ax2.set_xlabel(r'amount of shear $gamma$ [-]',fontsize=FONT_SIZE)
     ax2.plot(gamma_ss,Stress_predict_SS, label='model',zorder=5, lw=2,color=ColorS);
     R2ss = r2_score_own(P_ss,Stress_predict_SS)
-    ax2.text(0.85,0.05,r'$R^2$: '+f"{R2ss:.3f}",transform=ax2.transAxes,fontsize=16, horizontalalignment='left',color='k')
-    ax2.tick_params(labelsize=16)
+    ax2.text(0.85,0.05,r'$R^2$: '+f"{R2ss:.3f}",transform=ax2.transAxes,fontsize=FONT_SIZE, horizontalalignment='left',color='k')
+    ax2.tick_params(labelsize=FONT_SIZE)
     
     # ax2.set_yticks([-0.40, -0.20, 0.0, 0.20, 0.40])
     # ax2.set_xticks([-0.2, -0.1, 0.00, 0.1, 0.20 ])
@@ -112,27 +115,29 @@ def plotShear(ax2, gamma_ss, P_ss, Stress_predict_SS, Region):
     # ax2.set_xlim(-0.25,0.25)
     
     
-    plt.legend(loc='upper left', fancybox=True, framealpha=0.,fontsize=16)
+    plt.legend(loc='upper left', fancybox=True, framealpha=0.,fontsize=FONT_SIZE)
     
     
     return R2ss
 
-def plotTrans(ax3, lam_ut, P_ut, Stress_predict_trans, Region):
+def plotTrans(ax, lam_ut, P_ut, Stress_predict_trans, Region):
     """Plot transverse stress vs stretch"""
     
     n_plot_pts = 16
     lam_plot = np.linspace(np.amin(lam_ut), np.amax(lam_ut), n_plot_pts)
     P_plot = np.interp(lam_plot, lam_ut, P_ut)
     
-    ax3.scatter(lam_plot, P_plot, s=70, zorder=5, lw=2.5, facecolors='none', edgecolors='k', alpha=0.7, label=Region+' transverse data')
-    ax3.set_ylabel(r'transverse stress [kPa]', fontsize=16)
-    ax3.set_xlabel(r'stretch $\lambda$ [-]', fontsize=16)
-    ax3.plot(lam_ut, Stress_predict_trans, label='model', zorder=5, lw=2, color='blue')
+    ax.scatter(lam_plot, P_plot, s=70, zorder=5, lw=2.5, facecolors='none', edgecolors='k', alpha=0.7, label=Region+' transverse data')
+    ax.set_ylabel(r'transverse stress [kPa]', fontsize=FONT_SIZE)
+    ax.set_xlabel(r'stretch $\lambda$ [-]', fontsize=FONT_SIZE)
+    ax.plot(lam_ut, Stress_predict_trans, label='model prediction', zorder=5, lw=2, color='blue')
     # R2_trans = r2_score_own(P_ut, Stress_predict_trans)
-    # ax3.text(0.85, 0.05, r'$R^2$: '+f"{R2_trans:.3f}", transform=ax3.transAxes, fontsize=16, horizontalalignment='left', color='k')
-    ax3.tick_params(labelsize=16)
+    # ax3.text(0.85, 0.05, r'$R^2$: '+f"{R2_trans:.3f}", transform=ax3.transAxes, fontsize=FONT_SIZE, horizontalalignment='left', color='k')
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.set_title(f'transverse - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+
     
-    ax3.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=16)
+    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
     
     # return R2_trans
 
@@ -160,7 +165,7 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
                edgecolors='k', alpha=0.7, label=Region+' tension data')
     
     # Plot model prediction
-    ax.plot(lam_tension, stress_tension, label='Model prediction', zorder=9, lw=3, color='red')
+    ax.plot(lam_tension, stress_tension, label='model prediction', zorder=9, lw=3, color='red')
     
     # Create stacked area plot for contributions
     # Define colors using jet_r colormap - dynamically sized to number of terms
@@ -184,14 +189,14 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
     
     # Add R² text
     ax.text(0.5, 0.95, r'$R^2$: '+f"{R2_tension:.3f}", transform=ax.transAxes, 
-            fontsize=16, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            fontsize=FONT_SIZE, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
-    ax.set_ylabel(r'Nominal stress $P$ [kPa]', fontsize=16)
-    ax.set_xlabel(r'Stretch $\lambda$ [-]', fontsize=16)
-    ax.set_title(f'Tension - {Region}', fontsize=16, fontweight='bold')
-    ax.tick_params(labelsize=16)
-    # ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=16)
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=16)
+    ax.set_ylabel(r'axial stress [kPa]', fontsize=FONT_SIZE)
+    ax.set_xlabel(r'stretch [-]', fontsize=FONT_SIZE)
+    ax.set_title(f'tension - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+    ax.tick_params(labelsize=FONT_SIZE)
+    # ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=FONT_SIZE)
+    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
 
     ax.grid(True, alpha=0.3)
     
@@ -220,7 +225,7 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
                edgecolors='k', alpha=0.7, label=Region+' compression data')
     
     # Plot model prediction
-    ax.plot(lam_compression, stress_compression, label='Model prediction', zorder=9, lw=3, color='red')
+    ax.plot(lam_compression, stress_compression, label='model prediction', zorder=9, lw=3, color='red')
     
     # Create stacked area plot for contributions
     # Define colors using jet_r colormap - dynamically sized to number of terms
@@ -248,13 +253,13 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
     
     # Add R² text
     ax.text(0.5, 0.95, r'$R^2$: '+f"{R2_compression:.3f}", transform=ax.transAxes, 
-            fontsize=16, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            fontsize=FONT_SIZE, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
-    ax.set_ylabel(r'Nominal stress $P$ [kPa]', fontsize=16)
-    ax.set_xlabel(r'Stretch $\lambda$ [-]', fontsize=16)
-    ax.set_title(f'Compression - {Region}', fontsize=16, fontweight='bold')
-    ax.tick_params(labelsize=16)
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=16)
+    ax.set_ylabel(r'axial stress $P$ [kPa]', fontsize=FONT_SIZE)
+    ax.set_xlabel(r'stretch $\lambda$ [-]', fontsize=FONT_SIZE)
+    ax.set_title(f'compression - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -282,7 +287,7 @@ def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_cont
                edgecolors='k', alpha=0.7, label=Region+' shear data')
     
     # Plot model prediction
-    ax.plot(gamma_positive, stress_positive, label='Model prediction', zorder=9, lw=3, color='red')
+    ax.plot(gamma_positive, stress_positive, label='model prediction', zorder=9, lw=3, color='red')
     
     # Create stacked area plot for contributions
     # Define colors using jet_r colormap - dynamically sized to number of terms
@@ -306,13 +311,13 @@ def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_cont
     
     # Add R² text
     ax.text(0.5, 0.95, r'$R^2$: '+f"{R2_shear:.3f}", transform=ax.transAxes, 
-            fontsize=16, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            fontsize=FONT_SIZE, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
-    ax.set_ylabel(r'Shear stress [kPa]', fontsize=16)
-    ax.set_xlabel(r'Amount of shear $\gamma$ [-]', fontsize=16)
-    ax.set_title(f'Shear - {Region}', fontsize=16, fontweight='bold')
-    ax.tick_params(labelsize=16)
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=16)
+    ax.set_ylabel(r'shear stress [kPa]', fontsize=FONT_SIZE)
+    ax.set_xlabel(r'shear strain [-]', fontsize=FONT_SIZE)
+    ax.set_title(f'shear - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
