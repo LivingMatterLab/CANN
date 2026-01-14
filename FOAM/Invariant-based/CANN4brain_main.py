@@ -15,12 +15,12 @@ import pandas as pd
 import os
 
 from models_brain import*
+from models_brain import SinglePrincipalStretchLayer  # Import explicitly for type checking
 from plotting_brain import*
 
 from sklearn.metrics import r2_score
 
 
-convexity_weight = 20
 #%% Uts
 filename = os.path.basename(__file__)[:-3]
 cwd = os.getcwd()
@@ -143,6 +143,7 @@ def display_strain_energy_expression(Psi_model, terms):
             term_idx += 1
     
     # I2 terms (4 terms per SingleInvNet)
+    
     print("\nI2_bar terms:")
     for i in range(4):
         if term_idx < len(final_weights):
@@ -171,18 +172,18 @@ def display_strain_energy_expression(Psi_model, terms):
                 # Get the inner weight (coefficient inside the activation function)
                 w_inner = weights[i + 8][0][0] if (i + 8) < len(weights) else 1.0
                 
-                if i == 0:
+                if i == 2:
                     expr = f"{w_outer:.6f} (J^{w_inner:.6f} - {w_inner:.6f} log(J) - 1)"
-                elif i == 1:
+                elif i == 0:
                     expr = f"{w_outer*w_inner:.6f} log(J)^2"
-                elif i == 2:
+                elif i == 1:
                     expr = f"{w_outer:.6f} (exp({w_inner:.6f} log(J)^2) - 1)"
                 expression_terms.append(expr)
             term_idx += 1
 
-    # J terms (3 terms from BulkNet)
+    # Mixed terms (1-2 terms from MixedNet)
     print("\nMixed terms:")
-    for i in range(3):
+    for i in range(2):
         if term_idx < len(final_weights):
             w_outer = final_weights[term_idx]
             if abs(w_outer) > 1e-6:  # Only show significant terms
@@ -244,12 +245,12 @@ def traindata(modelFit_mode, zero_trans_tension=False, weight_std=False):
         stretch_in = lam_ut
         inp_len = stretch_in.shape[0]
         shear_in = np.array([0.0] * inp_len)
-        input_train = [stretch_in, shear_in]
+        input_train = [stretch_in]
         stress_axial = P_ut
         stress_trans = np.array([0.0] * inp_len)
         stress_shear = np.array([0.0] * inp_len)
         psi_output = np.array([0.0] * inp_len)
-        output_train = [stress_axial, stress_trans, stress_shear, psi_output]
+        output_train = [stress_axial, stress_trans, psi_output]
         # For TC mode, use compression weight for first half and tension weight for second half
         weight_tc_axial = np.concatenate([
             np.array([weight_compression] * (midpoint + 1)),  # compression data
@@ -265,7 +266,7 @@ def traindata(modelFit_mode, zero_trans_tension=False, weight_std=False):
             np.array([np.mean(weight_tc_axial_std) if zero_trans_tension else 0.0] * (len(lam_ut) - midpoint - 1))  # tension data
         ])
         sample_weights = (([weight_tc_axial_std, weight_tc_trans_std] if weight_std else [weight_tc_axial, weight_tc_trans]) + 
-            [np.array([0.0]* inp_len)] + [np.array([convexity_weight]*inp_len)])
+            [np.array([0.0]* inp_len)])
     elif modelFit_mode == "SS":
         shear_in = gamma_ss
         inp_len = shear_in.shape[0]
@@ -275,23 +276,22 @@ def traindata(modelFit_mode, zero_trans_tension=False, weight_std=False):
         stress_axial = np.array([0.0] * inp_len)
         stress_trans = np.array([0.0] * inp_len)
         psi_output = np.array([0.0] * inp_len)
-        output_train = [stress_axial, stress_trans, stress_shear, psi_output]
+        output_train = [stress_shear, psi_output]
         weight_ss_shear_std = 1 / (P_ss_std + eps)**2
-        sample_weights = make_sample_weights_std(np.array([0.0]*inp_len), 0.0, weight_ss_shear_std, inp_len) if weight_std else make_sample_weights(0, 0, weight_shear, inp_len)
+        sample_weights = [np.array([weight_shear]*inp_len), np.array([0.0]*inp_len)]
+        # sample_weights = make_sample_weights_std(np.array([0.0]*inp_len), 0.0, weight_ss_shear_std, inp_len) if weight_std else make_sample_weights(0, 0, weight_shear, inp_len)
         
     elif modelFit_mode == "TC_and_SS":
         _, input_train_1, output_train_1, sample_weights_1 = traindata("TC", zero_trans_tension=zero_trans_tension, weight_std=weight_std)
         _, input_train_2, output_train_2, sample_weights_2 = traindata("SS", zero_trans_tension=zero_trans_tension, weight_std=weight_std)
-        input_train = [np.concatenate([x, y], axis=0) for (x, y) in zip(input_train_1, input_train_2)]
-        output_train = [np.concatenate([x, y], axis=0) for (x, y) in zip(output_train_1, output_train_2)]
-        sample_weights = [np.concatenate([x, y], axis=0) for (x, y) in zip(sample_weights_1, sample_weights_2)]
-
-    
+        input_train = input_train_1 + input_train_2
+        output_train = output_train_1 + output_train_2
+        sample_weights = sample_weights_1 + [x/2.0 for x in sample_weights_2]
     return model_given, input_train, output_train, sample_weights
 
         
 
-def Compile_and_fit(model_given, input_train, output_train, epochs, path_checkpoint, sample_weights):
+def Compile_and_fit(model_given, input_train, output_train, epochs, path_checkpoint, sample_weights, model_unreg=None):
     
     # Use MSE for outputs 1-3 (Stress_axial, Stress_trans, Stress_shear)
     # Use MAE (absolute value) for output 4 (error)
@@ -301,16 +301,41 @@ def Compile_and_fit(model_given, input_train, output_train, epochs, path_checkpo
     #              sample_weights[1] * MSE(output_1) + 
     #              sample_weights[2] * MSE(output_2) + 
     #              sample_weights[3] * MAE(output_3)
-    mse_loss = keras.losses.MeanSquaredError()
-    mae_loss = keras.losses.MeanAbsoluteError()
-    loss_list = [mse_loss, mse_loss, mse_loss, mae_loss]
-    
-    metrics  =[keras.metrics.MeanSquaredError()] * 3 + [keras.metrics.MeanAbsoluteError()]
-    opti1    = tf.optimizers.Adam(learning_rate=0.001)
-    
-    model_given.compile(loss=loss_list,
+    if model_unreg is not None:
+        mse_loss_unreg = keras.losses.MeanSquaredError()
+        metrics  =[keras.metrics.MeanSquaredError()] * 5
+        opti1    = tf.optimizers.Adam(learning_rate=0.001)
+        model_unreg.compile(loss=mse_loss_unreg,
                   optimizer=opti1,
                   metrics=metrics)
+        es_callback = keras.callbacks.EarlyStopping(monitor="loss", min_delta=0, patience=3000, restore_best_weights=True)
+
+        modelckpt_callback = keras.callbacks.ModelCheckpoint(
+            monitor="loss",
+            filepath=path_checkpoint,
+            verbose=0,
+            save_weights_only=True,
+            save_best_only=True,
+        )
+        history_unreg = model_unreg.fit(input_train,
+                        output_train,
+                        batch_size=batch_size,
+                        epochs=5000,
+                        validation_split=0.0,
+                        callbacks=[es_callback, modelckpt_callback],
+                        shuffle = True,
+                        verbose = 0, 
+                        sample_weight = sample_weights)
+        model_given.load_weights(path_checkpoint)
+
+    mse_loss = keras.losses.MeanSquaredError()
+    metrics  =[keras.metrics.MeanSquaredError()] * 5
+    opti1    = tf.optimizers.Adam(learning_rate=0.01)
+    
+    model_given.compile(loss=mse_loss,
+                  optimizer=opti1,
+                  metrics=metrics)
+    
     
     
     es_callback = keras.callbacks.EarlyStopping(monitor="loss", min_delta=0, patience=3000, restore_best_weights=True)
@@ -345,10 +370,15 @@ def Stress_calc_axial(inputs):
 eps = 1e-9
 def Stress_calc_axial_principalStretch(inputs):
     (dWdl1, dWdl2, dWdl3, Stretch, Gamma) = inputs
-    # dl1dStretch = Stretch * (1 + (Stretch ** 2 + Gamma ** 2 - 1) / (2 * ((1 + Stretch ** 2 + Gamma ** 2)**2 / 4 - Stretch ** 2 + eps) ** 0.5))
-    # dl2dStretch = Stretch * (1 - (Stretch ** 2 + Gamma ** 2 - 1) / (2 * ((1 + Stretch ** 2 + Gamma ** 2)**2 / 4 - Stretch ** 2 + eps) ** 0.5))
-    # return dWdl1 * dl1dStretch + dWdl2 * dl2dStretch
-    return Stretch * (dWdl1 + dWdl2)
+    ## Can assume that if stretch > 1 then dl1dStretch = 1 and if stretch < 1 then dl2dStretch = 1
+    dl1dStretch = Stretch * (1 + (Stretch ** 2 + Gamma ** 2 - 1) / (2 * ((1 + Stretch ** 2 + Gamma ** 2)**2 / 4 - Stretch ** 2 + eps) ** 0.5))
+    dl2dStretch = Stretch * (1 - (Stretch ** 2 + Gamma ** 2 - 1) / (2 * ((1 + Stretch ** 2 + Gamma ** 2)**2 / 4 - Stretch ** 2 + eps) ** 0.5))
+    return dWdl1 * dl1dStretch + dWdl2 * dl2dStretch
+    # return Stretch * (dWdl1 + dWdl2)
+
+def Stress_calc_trans_principalStretch(inputs):
+    (dWdl1, dWdl2, dWdl3, Stretch, Gamma) = inputs 
+    return 2 * dWdl3
 
 def Stress_calc_shear_principalStretch(inputs):
     (dWdl1, dWdl2, dWdl3, Stretch, Gamma) = inputs
@@ -368,27 +398,6 @@ def Stress_calc_trans_biaxial(inputs):
     (dWdI1, dWdI2, dWdJ, StretchAxial, StretchTrans) = inputs
     return 2 * StretchTrans * dWdI1 + 2 * StretchTrans * (StretchTrans ** 2 + StretchAxial ** 2) * dWdI2 + StretchAxial * StretchTrans * dWdJ
 
-def Convexity_calc_biaxial(inputs):
-    (W1, W2, WJJ, W11, W22, W1J, StretchAxial, StretchTrans) = inputs
-    ## I1 = a^2 + b^2 + c^2
-    ## I2 = a^2b^2 + b^2c^2 + a^2c^2
-    ## J = abc
-    ## I1_b = 2b
-    ## I1_bb = 2
-    ## I2_b = 2b(a^2 + c^2) = 2b(a^2 + b^2)
-    ## I2_bb = 2(a^2 + c^2) = 2(a^2 + b^2)
-    ## J_b = ac = ab
-    ## J_bb = 0
-    ## W_bb = W_I1 * I1_bb + W_I1I1 * (I1_b)^2 
-    #       + W_I2 * I2_bb + W_I2I2 * (I2_b)^2
-    ##      + W_JJ * J_b^2 + 2W_JI1 * I1_b J_b
-    I1p = 2 * StretchTrans
-    I1pp = 2
-    I2p = 2 * StretchTrans * (StretchTrans ** 2 + StretchAxial ** 2)
-    I2pp = 2 * (StretchTrans ** 2 + StretchAxial ** 2)
-    Jp = StretchTrans * StretchAxial 
-
-    return W1 * I1pp + W11 * I1p ** 2 + W2 * I2pp + W22 * I2p ** 2 + WJJ * Jp ** 2 + 2 * W1J * I1p * Jp
 class PsiModelWrapper(keras.layers.Layer):
     """
     Custom layer that wraps Psi_model to ensure its trainable weights are properly tracked
@@ -443,81 +452,122 @@ class ComputeDerivativesLayer(keras.layers.Layer):
         # Return as separate outputs that can be unpacked
         return dWdI1, dWdI2, dWdJ
 
-class ComputeConstraintsLayer(keras.layers.Layer):
-    """
-    Custom layer that computes constraint values using nested GradientTape.
-    This ensures Psi_model's variables are tracked.
-    """
-    def __init__(self, psi_wrapper, **kwargs):
-        super(ComputeConstraintsLayer, self).__init__(**kwargs)
-        self.psi_wrapper = psi_wrapper
-    
-    def call(self, j):
-        i1_bar = 3.0 + j * 0
-        i2_bar = 3.0 + j * 0
-        i1_0 = j * 0.0
-        i2_0 = j * 0.0
-
-
-        
-        with tf.GradientTape(persistent=True) as tape1:
-            tape1.watch(j)
-            with tf.GradientTape(persistent=True) as tape2:
-                tape2.watch(j)
-                with tf.GradientTape(persistent=True) as tape3:
-                    tape3.watch([i1_bar, i2_bar, j])
-                    i1 = i1_bar * j ** (2/3)
-                    i2 = i2_bar * j ** (4/3)
-                    # Use the wrapper - TensorFlow will track its variables
-                    psi = self.psi_wrapper([i1, i2, j])
-                
-                dWdI1 = tape3.gradient(psi, i1_bar)
-                dWdI2 = tape3.gradient(psi, i2_bar)
-                psi_0 = self.psi_wrapper([i1_0, i2_0, j])
-            dWdJ = tape2.gradient(psi_0, j)
-            d2WdI1dJ = tape2.gradient(dWdI1, j)
-        d3WdI1dJ2 = tape1.gradient(d2WdI1dJ, j)
-        dWdJ2 = tape1.gradient(dWdJ, j)
-
-        A = (4/9) * dWdI1 + (8/3) * j * d2WdI1dJ + j ** 2 * d3WdI1dJ2
-        B = (10/9) * dWdI1 - (4/3) * j * d2WdI1dJ + j ** 2 * d3WdI1dJ2
-        C = j ** 2 * dWdJ2
-        output = tf.nn.relu(-B) + tf.nn.relu(-C - 3 * (A * B ** 2) ** (1/3))
-        return output
 
 def extract_term_contributions(model, stretch_input, gamma_input):
     """
     Extract individual term contributions to STRESS using weight zeroing approach.
     This function works with both StrainEnergyCANN and StrainEnergyPrincipalStretch architectures.
     """
-    # Get the Psi_model from the main model (4th output)
     # Get the full model prediction first (use eager call to avoid predict shape issues)
-    full_prediction = model([stretch_input, gamma_input], training=False)
+    full_prediction = model([stretch_input, stretch_input * 0 + 0.8, gamma_input], training=False)
     # Ensure numpy arrays
     full_stress = full_prediction[0].numpy() if hasattr(full_prediction[0], 'numpy') else full_prediction[0]
+    full_shear = full_prediction[3].numpy() if hasattr(full_prediction[3], 'numpy') else full_prediction[3]
+    # Find Psi_model or SinglePrincipalStretchLayer by traversing the model structure
+    def find_layer_recursive(layer, target_class, target_name=None):
+        """Recursively search for a layer of a specific class or name"""
+        if isinstance(layer, target_class):
+            if target_name is None or layer.name == target_name:
+                return layer
+        if hasattr(layer, 'layers'):
+            for sublayer in layer.layers:
+                result = find_layer_recursive(sublayer, target_class, target_name)
+                if result is not None:
+                    return result
+        return None
+    
+    # # Try to find SinglePrincipalStretchLayer (new architecture)
+    # single_principal_stretch_layer = find_layer_recursive(model, SinglePrincipalStretchLayer)
+    
+    # # If not found, try to find Psi_model and then look for the layer inside it
+    # Psi_model = None
+    # if single_principal_stretch_layer is None:
+    #     Psi_model = find_layer_recursive(model, keras.models.Model, 'Psi')
+    #     if Psi_model is not None:
+    #         # Look for SinglePrincipalStretchLayer in Psi_model
+    #         single_principal_stretch_layer = find_layer_recursive(Psi_model, SinglePrincipalStretchLayer)
     
     # Detect which architecture we're using
-    # Check if Psi_model has a SinglePrincipalStretch model (Principal Stretch architecture)
-    SinglePrincipalStretch_model = None
-    for layer in Psi_model.layers:
-        if isinstance(layer, keras.models.Model) and layer.name == 'SinglePrincipalStretch':
-            SinglePrincipalStretch_model = layer
-            break
+    # print(single_principal_stretch_layer)
+    # if single_principal_stretch_layer is not None:
+    #     print('Principal Stretch architecture')
+    #     # Principal Stretch architecture with new custom layer
+    #     # Extract outer_weights from the custom layer
+    #     outer_weights = single_principal_stretch_layer.get_weights()[1]  # outer_weights is the second weight
+    #     original_outer_weights = outer_weights.copy()
+    #     num_terms = original_outer_weights.shape[0]  # Should be 5
+    #     term_names = ["Term 1", "Term 2", "Term 3", "Term 4", "Term 5"]
+        
+    #     stress_contributions = []
+        
+    #     # Extract individual term contributions by zeroing out other outer weights
+    #     for i in range(num_terms):
+    #         # Create a copy of the outer weights
+    #         new_outer_weights = np.zeros_like(original_outer_weights)
+            
+    #         # Set only the i-th outer weight to its original value
+    #         if i < original_outer_weights.shape[0]:
+    #             new_outer_weights[i, 0] = original_outer_weights[i, 0]
+            
+    #         # Get all weights from the layer (inner_weights, outer_weights)
+    #         all_weights = single_principal_stretch_layer.get_weights()
+    #         # Update only the outer_weights (second weight)
+    #         new_all_weights = [all_weights[0], new_outer_weights]
+            
+    #         # Set the new weights
+    #         single_principal_stretch_layer.set_weights(new_all_weights)
+            
+    #         # Get prediction with only this term active
+    #         term_prediction = model([stretch_input, gamma_input], training=False)
+    #         term_stress = term_prediction[0].numpy() if hasattr(term_prediction[0], 'numpy') else term_prediction[0]
+    #         # Normalize shape to (n_points,)
+    #         ts = np.array(term_stress)
+    #         ts = np.squeeze(ts)
+    #         n_pts = np.array(stretch_input).shape[0]
+    #         if ts.ndim == 2:
+    #             if ts.shape[0] == n_pts:
+    #                 ts = ts[:, 0] if ts.shape[1] == 1 else ts[:, ...]
+    #             elif ts.shape[1] == n_pts:
+    #                 ts = ts.T
+    #                 ts = ts[:, 0] if ts.ndim == 2 and ts.shape[1] == 1 else ts
+    #         elif ts.ndim == 0:
+    #             ts = np.full((n_pts,), float(ts))
+    #         stress_contributions.append(np.array(ts).reshape(-1))
+        
+    #     # Restore original weights
+    #     all_weights = single_principal_stretch_layer.get_weights()
+    #     all_weights[1] = original_outer_weights
+    #     single_principal_stretch_layer.set_weights(all_weights)
+        
+    #     return stress_contributions, term_names
     
-    if SinglePrincipalStretch_model is not None:
-        # Principal Stretch architecture
-        final_layer = SinglePrincipalStretch_model.layers[-1]
-        term_names = ["exp(ln(λ))-ln(λ)-1", "ln(λ)²", "exp(ln(λ)²)-1", "ln(λ)³", "exp(ln(λ)³)-1"]
-    else:
+    # else:
         # StrainEnergyCANN architecture - find the final dense layer
+        # Psi_model is wrapped in PsiModelWrapper, so we need to find it through the wrapper
+        # First, try to find PsiModelWrapper recursively
+    psi_wrapper = find_layer_recursive(model, PsiModelWrapper)
+    
+    # If PsiModelWrapper found, get Psi_model from it
+    if psi_wrapper is not None:
+        Psi_model = psi_wrapper.psi_model
+    else:
+        # Try to find Psi_model directly as a submodel
+        Psi_model = find_layer_recursive(model, keras.models.Model, 'Psi')
+    
+    # If we found Psi_model, find wx2 layer in it
+    if Psi_model is not None:
         final_layer = None
         for layer in reversed(Psi_model.layers):
-            if isinstance(layer, keras.layers.Dense) and layer.name == 'wx2':
+            if isinstance(layer, SingleOutputDenseLayer):
                 final_layer = layer
                 break
+    else:
+        # Try to find wx2 layer directly in the model (it might be accessible directly)
+        final_layer = find_layer_recursive(model, SingleOutputDenseLayer, None)
         
         if final_layer is None:
-            raise ValueError("Could not find final dense layer in StrainEnergyCANN model")
+            raise ValueError("Could not find final dense layer 'wx2' in StrainEnergyCANN model. "
+                        "Tried searching in Psi_model (via PsiModelWrapper) and directly in model.")
     
     # Check if the layer has weights
     if not final_layer.get_weights():
@@ -527,29 +577,29 @@ def extract_term_contributions(model, stretch_input, gamma_input):
     
     # Get the actual number of terms from the weight shape
     num_terms = original_weights.shape[0]
+    print(num_terms)
 
     # Build term names dynamically based on the structure
     # For StrainEnergyCANN: 4 I1 terms, 4 I2 terms, 3 J terms, 2 Mixed terms (total = 13)
-    if SinglePrincipalStretch_model is None:
-        term_names = []
-        if num_terms >= 4:
-            term_names.extend(["I1", "exp(I1)-1", "I1²", "exp(I1²)-1"])
-        if num_terms >= 8:
-            term_names.extend(["I2", "exp(I2)-1", "I2²", "exp(I2²)-1"])
-        if num_terms >= 11:
-            term_names.extend(["Jᵐ - m ln(J)", "ln(J)²", "exp(ln(J)²)"])
-        if num_terms > 11:
-            term_names.extend(["I1·J", "I2·J"])
-        
-        # If there are more or fewer terms than expected, adjust
-        if len(term_names) < num_terms:
-            for i in range(len(term_names), num_terms):
-                term_names.append(f"Term {i+1}")
-        elif len(term_names) > num_terms:
-            term_names = term_names[:num_terms]
+    term_names = []
+    if num_terms >= 4:
+        term_names.extend(["I1", "exp(I1)-1", "I1²", "exp(I1²)-1"])
+    if num_terms >= 8:
+        term_names.extend(["I2", "exp(I2)-1", "I2²", "exp(I2²)-1"])
+    if num_terms >= 11:
+        term_names.extend(["Jᵐ - m ln(J)", "exp(ln(J)²)"])
+    if num_terms > 11:
+        term_names.extend(["λiᵐ - m ln(λi)"])
+    
+    # If there are more or fewer terms than expected, adjust
+    if len(term_names) < num_terms:
+        for i in range(len(term_names), num_terms):
+            term_names.append(f"Term {i+1}")
+    elif len(term_names) > num_terms:
+        term_names = term_names[:num_terms]
     
     stress_contributions = []
-    
+    shear_stress_contributions = []
     # Extract individual term contributions by zeroing out other weights
     for i in range(num_terms):
         # Create a copy of the weights
@@ -563,11 +613,15 @@ def extract_term_contributions(model, stretch_input, gamma_input):
         final_layer.set_weights([new_weights])
         
         # Get prediction with only this term active
-        term_prediction = model([stretch_input, gamma_input], training=False)
+        term_prediction = model([stretch_input, stretch_input * 0 + 0.8, gamma_input], training=False)
         term_stress = term_prediction[0].numpy() if hasattr(term_prediction[0], 'numpy') else term_prediction[0]
+        term_shear = term_prediction[3].numpy() if hasattr(term_prediction[0], 'numpy') else term_prediction[3]
+
         # Normalize shape to (n_points,)
         ts = np.array(term_stress)
+        ts_shear = np.array(term_shear)
         ts = np.squeeze(ts)
+        ts_shear = np.squeeze(ts_shear)
         n_pts = np.array(stretch_input).shape[0]
         if ts.ndim == 2:
             if ts.shape[0] == n_pts:
@@ -578,43 +632,69 @@ def extract_term_contributions(model, stretch_input, gamma_input):
         elif ts.ndim == 0:
             ts = np.full((n_pts,), float(ts))
         stress_contributions.append(np.array(ts).reshape(-1))
+        shear_stress_contributions.append(np.array(ts_shear).reshape(-1))
     
     # Restore original weights
     final_layer.set_weights([original_weights])
     
-    return stress_contributions, term_names
+    return stress_contributions, shear_stress_contributions, term_names
 
 def extract_shear_term_contributions(model, Psi_model, stretch_input, gamma_input):
     """
     Extract individual term contributions to SHEAR STRESS using weight zeroing approach.
     This function works with both StrainEnergyCANN and StrainEnergyPrincipalStretch architectures.
-    """    
+    """
     # Get the full model prediction first (use eager call)
     full_prediction = model([stretch_input, gamma_input], training=False)
     full_stress = full_prediction[2].numpy() if hasattr(full_prediction[2], 'numpy') else full_prediction[2]
     
-    # Detect which architecture we're using
-    # Check if Psi_model has a SinglePrincipalStretch model (Principal Stretch architecture)
-    SinglePrincipalStretch_model = None
-    for layer in Psi_model.layers:
-        if isinstance(layer, keras.models.Model) and layer.name == 'SinglePrincipalStretch':
-            SinglePrincipalStretch_model = layer
-            break
+    # Find Psi_model or SinglePrincipalStretchLayer by traversing the model structure
+    def find_layer_recursive(layer, target_class, target_name=None):
+        """Recursively search for a layer of a specific class or name"""
+        if isinstance(layer, target_class):
+            if target_name is None or layer.name == target_name:
+                return layer
+        if hasattr(layer, 'layers'):
+            for sublayer in layer.layers:
+                result = find_layer_recursive(sublayer, target_class, target_name)
+                if result is not None:
+                    return result
+        return None
     
-    if SinglePrincipalStretch_model is not None:
-        # Principal Stretch architecture
-        final_layer = SinglePrincipalStretch_model.layers[-1]
-        term_names = ["exp(ln(λ))-ln(λ)-1", "ln(λ)²", "exp(ln(λ)²)-1", "ln(λ)³", "exp(ln(λ)³)-1"]
-    else:
+    # # Try to find SinglePrincipalStretchLayer (new architecture)
+    # single_principal_stretch_layer = find_layer_recursive(model, SinglePrincipalStretchLayer)
+    
+    # # If not found, try to find Psi_model and then look for the layer inside it
+    # if single_principal_stretch_layer is None:
+    #     single_principal_stretch_layer = find_layer_recursive(Psi_model, SinglePrincipalStretchLayer)
+    
         # StrainEnergyCANN architecture - find the final dense layer
+    # Psi_model is wrapped in PsiModelWrapper, so we need to find it through the wrapper
+    # First, try to find PsiModelWrapper recursively
+    psi_wrapper = find_layer_recursive(model, PsiModelWrapper)
+    
+    # If PsiModelWrapper found, get Psi_model from it
+    if psi_wrapper is not None:
+        Psi_model = psi_wrapper.psi_model
+    else:
+        # Try to find Psi_model directly as a submodel if not passed or not found via wrapper
+        if Psi_model is None:
+            Psi_model = find_layer_recursive(model, keras.models.Model, 'Psi')
+    
+    # If we found Psi_model, find wx2 layer in it
+    if Psi_model is not None:
         final_layer = None
         for layer in reversed(Psi_model.layers):
             if isinstance(layer, keras.layers.Dense) and layer.name == 'wx2':
                 final_layer = layer
                 break
+    else:
+        # Try to find wx2 layer directly in the model (it might be accessible directly)
+        final_layer = find_layer_recursive(model, keras.layers.Dense, 'wx2')
         
-        if final_layer is None:
-            raise ValueError("Could not find final dense layer in StrainEnergyCANN model")
+    if final_layer is None:
+        raise ValueError("Could not find final dense layer 'wx2' in Principal Stretch model. "
+                        "Tried searching in Psi_model (via PsiModelWrapper) and directly in model.")
     
     # Check if the layer has weights
     if not final_layer.get_weights():
@@ -624,26 +704,26 @@ def extract_shear_term_contributions(model, Psi_model, stretch_input, gamma_inpu
     
     # Get the actual number of terms from the weight shape
     num_terms = original_weights.shape[0]
+    print(num_terms)
     
     # Build term names dynamically based on the structure
     # For StrainEnergyCANN: 4 I1 terms, 4 I2 terms, 3 J terms, 2 Mixed terms (total = 13)
-    if SinglePrincipalStretch_model is None:
-        term_names = []
-        if num_terms >= 4:
-            term_names.extend(["I1", "exp(I1)-1", "I1²", "exp(I1²)-1"])
-        if num_terms >= 8:
-            term_names.extend(["I2", "exp(I2)-1", "I2²", "exp(I2²)-1"])
-        if num_terms >= 11:
-            term_names.extend(["Jᵐ - m ln(J)", "ln(J)²", "exp(ln(J)²)"])
-        if num_terms >= 13:
-            term_names.extend(["I1·J", "I2·J"])
+    term_names = []
+    if num_terms >= 4:
+        term_names.extend(["I1", "exp(I1)-1", "I1²", "exp(I1²)-1"])
+    if num_terms >= 8:
+        term_names.extend(["I2", "exp(I2)-1", "I2²", "exp(I2²)-1"])
+    if num_terms >= 11:
+        term_names.extend(["Jᵐ - m ln(J)", "ln(J)²", "exp(ln(J)²)"])
+    if num_terms > 11:
+        term_names.extend(["λiᵐ - m ln(λi)"])
         
         # If there are more or fewer terms than expected, adjust
-        if len(term_names) < num_terms:
-            for i in range(len(term_names), num_terms):
-                term_names.append(f"Term {i+1}")
-        elif len(term_names) > num_terms:
-            term_names = term_names[:num_terms]
+    if len(term_names) < num_terms:
+        for i in range(len(term_names), num_terms):
+            term_names.append(f"Term {i+1}")
+    elif len(term_names) > num_terms:
+        term_names = term_names[:num_terms]
     
     stress_contributions = []
     
@@ -680,61 +760,6 @@ def extract_shear_term_contributions(model, Psi_model, stretch_input, gamma_inpu
     
     return stress_contributions, term_names
 
-def modelArchitectureBiaxial(Psi_model):
-    # Stretch and Gamma as input
-    StretchAxial = keras.layers.Input(shape = (1,), name = 'StretchAxial')
-    StretchTrans = keras.layers.Input(shape = (1,), name = 'StretchTrans')
-
-    # Compute invariants
-    ## I1 = a^2 + b^2 + c^2
-    ## I2 = a^2b^2 + b^2c^2 + a^2c^2
-    ## J = abc
-    ## I1_b = 2b
-    ## I1_bb = 2
-    ## I2_b = 2b(a^2 + c^2) = 2b(a^2 + b^2)
-    ## I2_bb = 2(a^2 + c^2) = 2(a^2 + b^2)
-    ## J_b = ac = ab
-    ## J_bb = 0
-    ## W_bb = W_I1 * I1_bb + W_I1I1 * (I1_b)^2 
-    #       + W_I2 * I2_bb + W_I2I2 * (I2_b)^2
-    ##      + W_JJ * J_b^2 + 2W_JI1 * I1_b J_b
-    I1 = keras.layers.Lambda(lambda x: x[0]**2 + 2 * x[1] ** 2)([StretchAxial, StretchTrans])
-    I2 = keras.layers.Lambda(lambda x: x[1] ** 4 + 2 * x[0] ** 2 * x[1] ** 2)([StretchAxial, StretchTrans])
-    J = keras.layers.Lambda(lambda x: x[0] * x[1] ** 2)([StretchAxial, StretchTrans])
-
-    # Get strain energy - this ensures the model has trainable weights
-    Psi = Psi_model([I1, I2, J])
-
-    # Compute derivatives using GradientTape approach
-    def compute_derivatives(inputs):
-        i1, i2, j = inputs
-        with tf.GradientTape(persistent=True) as tape1:
-
-            with tf.GradientTape(persistent=True) as tape2:
-                tape2.watch([i1, i2, j])
-                psi = Psi_model([i1, i2, j])
-        
-            W1 = tape2.gradient(psi, i1)
-            W2 = tape2.gradient(psi, i2)
-            WJ = tape2.gradient(psi, j)
-        W11 = tape1.gradient(W1, i1, unconnected_gradients=tf.UnconnectedGradients.ZERO)
-        W22 = tape1.gradient(W2, i2, unconnected_gradients=tf.UnconnectedGradients.ZERO)
-        WJJ = tape1.gradient(WJ, j, unconnected_gradients=tf.UnconnectedGradients.ZERO)
-        W1J = tape1.gradient(W1, j, unconnected_gradients=tf.UnconnectedGradients.ZERO)
-        return W1, W2, WJJ, W11, W22, W1J
-
-    # Compute derivatives
-    W1, W2, WJJ, W11, W22, W1J = keras.layers.Lambda(compute_derivatives, 
-                                               output_shape=[(None, 1)] * 6)([I1, I2, J])
-
-    # Compute stresses
-    
-    Convexity = keras.layers.Lambda(function=Convexity_calc_biaxial,
-                                       name='Stress_trans')([W1, W2, WJJ, W11, W22, W1J, StretchAxial, StretchTrans])
-
-    # Define model - include Psi in outputs to preserve trainable weights
-    model = keras.models.Model(inputs=[StretchAxial, StretchTrans], outputs= [Convexity])
-    return model
     
 # Complete model architecture definition
 def modelArchitecture(Psi_model):
@@ -768,15 +793,10 @@ def modelArchitecture(Psi_model):
     Stress_shear = keras.layers.Lambda(function = Stress_calc_shear,
                                 name = 'Stress_shear')([dWdI1, dWdI2, dWdJ, Stretch, Gamma])
 
-    # J_max = keras.layers.Lambda(lambda x: x[0] * 0.0 + 1.3, name = 'J_max')([J])
-    # Use custom Layer class instead of Lambda function for constraints
-    compute_constraints_layer = ComputeConstraintsLayer(psi_wrapper, name='compute_constraints')
-    constraint_error = compute_constraints_layer(J) ## Changed from J_max to J, may need higher penalty to reach 0 error
-    
     # Create the model - the PsiModelWrapper ensures Psi_model's weights are tracked
     # By using psi_wrapper([I1, I2, J]) directly in the graph (not just in Lambda closures),
     # TensorFlow should automatically track Psi_model's trainable variables
-    model = keras.models.Model(inputs=[Stretch, Gamma], outputs= [Stress_axial, Stress_trans, Stress_shear, constraint_error])
+    model = keras.models.Model(inputs=[Stretch, Gamma], outputs= [Stress_axial, Stress_trans, Stress_shear, Psi])
     
     # Verify variable tracking - this helps diagnose if the fix is working
     psi_trainable_count = len(Psi_model.trainable_variables)
@@ -798,51 +818,34 @@ def modelArchitecture(Psi_model):
 
 # Complete model architecture definition
 def modelArchitecturePrincipalStretch(Psi_model):
-    # Stretch and Gamma as input
-    Stretch = keras.layers.Input(shape = (1,), name = 'Stretch')
-    Gamma = keras.layers.Input(shape = (1,), name = 'gamma')
+    ## model_ut
+    Stretch_ut = keras.layers.Input(shape = (1,), name = 'Stretch_ut')
+    lambda_2_ut = keras.layers.Lambda(lambda x: 1.0 + x[0] * 0)([Stretch_ut])
+    lambda_3_ut = keras.layers.Lambda(lambda x: 1.0 + x[0] * 0)([Stretch_ut])
+    Psi_ut = Psi_model([Stretch_ut, lambda_2_ut, lambda_3_ut])
+    compute_derivatives_layer = ComputeDerivativesLayer(Psi_model, name='compute_derivatives_ut')
+    dWdl1, dWdl2, dWdl3 = compute_derivatives_layer([Stretch_ut, lambda_2_ut, lambda_3_ut])   
+    Stress_axial = dWdl1
+    Stress_trans = dWdl2
+    model_ut = keras.models.Model(inputs=[Stretch_ut], outputs= [Stress_axial, Stress_trans, Psi_ut])
 
-    # Compute invariants
-    lambda_1 = keras.layers.Lambda(lambda x: (1 + x[0]**2 + x[1] ** 2) / 2 + ((1 + x[0]**2 + x[1] ** 2) ** 2 / 4 - x[0] ** 2) ** 0.5)([Stretch, Gamma])
-    lambda_2 = keras.layers.Lambda(lambda x: (1 + x[0]**2 + x[1] ** 2) / 2 - ((1 + x[0]**2 + x[1] ** 2) ** 2 / 4 - x[0] ** 2) ** 0.5)([Stretch, Gamma])
-    lambda_3 = keras.layers.Lambda(lambda x: 1.0 + x[0] * 0)([Stretch, Gamma])
-    
-    # Get strain energy - this ensures the model has trainable weights
-    Psi = Psi_model([lambda_1, lambda_2, lambda_3])
+    ## model_ss
+    Stretch_ss = keras.layers.Input(shape = (1,), name = 'Stretch_ss')
+    Gamma_ss = keras.layers.Input(shape = (1,), name = 'Gamma_ss')
+    lambda_1_ss = keras.layers.Lambda(lambda x: (1 + x[0]**2 + x[1] ** 2) / 2 + ((1 + x[0]**2 + x[1] ** 2) ** 2 / 4 - x[0] ** 2) ** 0.5)([Stretch_ss, Gamma_ss])
+    lambda_2_ss = keras.layers.Lambda(lambda x: (1 + x[0]**2 + x[1] ** 2) / 2 - ((1 + x[0]**2 + x[1] ** 2) ** 2 / 4 - x[0] ** 2) ** 0.5)([Stretch_ss, Gamma_ss])
+    lambda_3_ss = keras.layers.Lambda(lambda x: 1.0 + x[0] * 0)([Gamma_ss])
+    # gamma + 1 / ((1 + x[0]**2 + x[1] ** 2) ** 2 / 4 - x[0] ** 2)
 
-    # Compute derivatives using GradientTape approach
-    def compute_derivatives(inputs):
-        l1, l2, l3 = inputs
-        
-        with tf.GradientTape(persistent=True) as tape:
-            tape.watch([l1, l2, l3])
-            psi = Psi_model([l1, l2, l3])
-        
-        dWdl1 = tape.gradient(psi, l1)
-        dWdl2 = tape.gradient(psi, l2)
-        dWdl3 = tape.gradient(psi, l3)
-        
-        return dWdl1, dWdl2, dWdl3
-
-    # Compute derivatives
-    dWdl1, dWdl2, dWdl3 = keras.layers.Lambda(compute_derivatives, 
-                                               output_shape=[(None, 1), (None, 1), (None, 1)])([lambda_1, lambda_2, lambda_3])
-
-    # Compute stresses
-    Stress_axial = keras.layers.Lambda(function = Stress_calc_axial_principalStretch,
-                                name = 'Stress_axial')([dWdl1, dWdl2, dWdl3, Stretch, Gamma])
-    Stress_trans = keras.layers.Lambda(lambda x: tf.zeros_like(x[0]), 
-                                       output_shape=(None, 1))([Stress_axial])
-    # Stress_trans = keras.layers.Lambda(function=Stress_calc_trans,
-    #                                    name='Stress_trans')([dWdI1, dWdI2, dWdJ, Stretch, Gamma])
+    Psi_ss = Psi_model([lambda_1_ss, lambda_2_ss, lambda_3_ss])
+    compute_derivatives_layer = ComputeDerivativesLayer(Psi_model, name='compute_derivatives_ss')
+    dWdl1, dWdl2, dWdl3 = compute_derivatives_layer([lambda_1_ss, lambda_2_ss, lambda_3_ss])
     Stress_shear = keras.layers.Lambda(function = Stress_calc_shear_principalStretch,
-                                name = 'Stress_shear')([dWdl1, dWdl2, dWdl3, Stretch, Gamma])
+                                name = 'Stress_shear')([dWdl1, dWdl2, dWdl3, Stretch_ss, Gamma_ss])
+    model_ss = keras.models.Model(inputs=[Stretch_ss, Gamma_ss], outputs= [Stress_shear, Psi_ss])
 
-    # Define model - include Psi in outputs to preserve trainable weights
-    model = keras.models.Model(inputs=[Stretch, Gamma], outputs= [Stress_axial, Stress_trans, Stress_shear, Psi])
-    
-    return Psi_model, model
-
+    model_combined = keras.models.Model(inputs=[Stretch_ut, Stretch_ss, Gamma_ss], outputs= [Stress_axial, Stress_trans,Psi_ut, Stress_shear, Psi_ss])
+    return model_combined
 
 
 
@@ -850,9 +853,9 @@ def modelArchitecturePrincipalStretch(Psi_model):
 
 #%% Init
 train = True
-epochs = 20000
+epochs = 5000
 batch_size = 64
-model_type = 'convex_mixed_terms_l1_0.01'
+model_type = 'inv_ps_polyconvex_lp_1'
 weight_flag = True
 principal_stretch_flag = False
 mixed_flag = True
@@ -860,9 +863,10 @@ zero_trans_tension_flag = True
 weight_std_flag = False
 no_I2_flag = True
 
-# L1 regularization strength
-l1_reg = 0.01
 
+# L1 regularization strength
+l1_reg = 1.0
+p = 0.5
 
 
 path2saveResults_0 = 'Results/'+filename+'/'+model_type
@@ -874,8 +878,8 @@ Model_summary = path2saveResults_0 + '/Model_summary.txt'
 # #modelFit_mode_all = ['SS', 'C', 'T', 'TC', "TC_and_SS"]
         
 modelFit_mode_all = ["TC_and_SS"] 
+# Region_all = ['turbo']
 Region_all = ['leap', 'turbo']
-# Region_all = ['leap']
 
 # prepare R2 array
 R2_all = np.zeros([len(Region_all),len(modelFit_mode_all)+2])
@@ -907,11 +911,20 @@ for id1, Region in enumerate(Region_all):
         
         #%% PI-CANN
         if principal_stretch_flag:
-            Psi_model, terms = StrainEnergyPrincipalStretch(l1_reg)
-            Psi_model, model = modelArchitecturePrincipalStretch(Psi_model)
+            Psi_model_unreg, terms = StrainEnergyPrincipalStretch(0.0, p)
+            model_unreg = modelArchitecturePrincipalStretch(Psi_model_unreg)
+            Psi_model, terms = StrainEnergyPrincipalStretch(l1_reg, p)
+            model = modelArchitecturePrincipalStretch(Psi_model)
+
+        elif mixed_flag:
+            Psi_model_unreg, terms = StrainEnergyPrincipalStretchMixed(0.0, p)
+            model_unreg = modelArchitecturePrincipalStretch(Psi_model_unreg)
+            Psi_model, terms = StrainEnergyPrincipalStretchMixed(l1_reg, p)
+            model = modelArchitecturePrincipalStretch(Psi_model)
         else:   
             Psi_model, terms = StrainEnergyCANN(l1_reg, include_mixed=mixed_flag, no_I2_flag=no_I2_flag)
             Psi_model, model = modelArchitecture(Psi_model)
+            model_unreg = None
 
         
         with open(Model_summary,'w') as fh:
@@ -931,18 +944,19 @@ for id1, Region in enumerate(Region_all):
 
             ##
             
-            model_given, history = Compile_and_fit(model_given, input_train, output_train, epochs, path_checkpoint, sample_weights)
+            model_given, history = Compile_and_fit(model_given, input_train, output_train, epochs, path_checkpoint, sample_weights, model_unreg)
+
             # model_given.load_weights(path_checkpoint,  skip_mismatch=False)
             tf.keras.models.save_model(Psi_model, Save_path, overwrite=True)
             Psi_model.save_weights(Save_weights, overwrite=True)
             
             
             # Plot loss function
-            # loss_history = history.history['loss']
-            # fig, axe = plt.subplots(figsize=[6, 5])  # inches
-            # plotLoss(axe, loss_history)
-            # plt.savefig(path2saveResults+'/Plot_loss_'+Region+'_'+modelFit_mode+'.pdf')
-            # plt.close()
+            loss_history = history.history['loss']
+            fig, axe = plt.subplots(figsize=[6, 5])  # inches
+            plotLoss(axe, loss_history)
+            plt.savefig(path2saveResults+'/Plot_loss_'+Region+'_'+modelFit_mode+'.pdf')
+            plt.close()
             
         else:
             # Psi_model = tf.keras.models.load_model(Save_path)
@@ -963,26 +977,23 @@ for id1, Region in enumerate(Region_all):
 
 
         # PI-CANN get model response at data points
-        Stress_predict_axial, Stress_predict_trans, _, convexity_error = model.predict([lam_ut, gamma_ss * 0.0])
-        _, _, Stress_predict_shear, _ = model.predict([lam_ut * 0 + 0.8, gamma_ss])
-        print("Convexity error: ", np.mean(convexity_error)) ## 94 @ weight of 1.0, 
-        # _, _, Stress_predict_shear, convexity_error = model([lam_ut * 0 + 0.8, gamma_ss], training=False)
-        # print("Convexity error: ", convexity_error)
+        Stress_predict_axial, Stress_predict_trans, _, Stress_predict_shear, _ = model.predict([lam_ut, lam_ut * 0 + 0.8, gamma_ss])
         # Extract individual term contributions at data points
-        stress_contributions, term_names = extract_term_contributions(model, lam_ut, gamma_ss * 0.0)
+        stress_contributions, shear_stress_contributions, term_names = extract_term_contributions(model, lam_ut, gamma_ss)
 
         #%% Plotting - Create both old combined plot and new separate plots
         
         # Original combined plot (keep the old functionality)
         fig = plt.figure(figsize=(10, 8))
-        spec = gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
+        spec = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
         ax1 = fig.add_subplot(spec[0,0])
         # ax2 = fig.add_subplot(spec[1,0])
         # ax3 = fig.add_subplot(spec[2,0])
 
-        # R2, R2_c, R2_t = plotTenCom(fig_ax1, lam_ut, P_ut, Stress_predict_axial, Region)
+        print(Stress_predict_axial)
+        # R2, R2_c, R2_t = plotTenCom(ax1, lam_ut, P_ut, Stress_predict_axial, Region)
         plotTrans(ax1, lam_ut, P_ut * 0.0, Stress_predict_trans, Region)
-        # R2ss = plotShear(ax2, gamma_ss, P_ss, Stress_predict_shear, Region)
+        # R2_ss = plotShear(ax2, gamma_ss, P_ss, Stress_predict_shear, Region)
         fig.tight_layout()        
 
         plt.savefig(path2saveResults+'/Plot_Trans_'+Region+'_'+modelFit_mode+'.pdf')
@@ -1009,10 +1020,10 @@ for id1, Region in enumerate(Region_all):
         plt.close()
         
         # 3. Shear plot - need to extract contributions for shear case
-        stress_contributions_shear, _ = extract_shear_term_contributions(model, Psi_model, lam_ut * 0 + 0.8, gamma_ss)
-        fig_shear, R2ss = plotShearWithContributions(
+        # stress_contributions_shear, _ = extract_shear_term_contributions(model, Psi_model, lam_ut * 0 + 0.8, gamma_ss)
+        fig_shear, R2_ss = plotShearWithContributions(
             gamma_ss, P_ss, Stress_predict_shear,
-            stress_contributions_shear, term_names, Region
+            shear_stress_contributions, term_names, Region
         )
         plt.savefig(path2saveResults+'/Plot_Shear_Contributions_'+Region+'_'+modelFit_mode+'.pdf', 
                    bbox_inches='tight', dpi=300)
@@ -1064,7 +1075,7 @@ for id1, Region in enumerate(Region_all):
         
         #%% Plotting
         
-        Config = {Region:Region, modelFit_mode:modelFit_mode, "R2_c":R2_c, "R2_t": R2_t, "R2_ss": R2ss, "weigths": weight_matrix.tolist()}
+        Config = {Region:Region, modelFit_mode:modelFit_mode, "R2_c":R2_c, "R2_t": R2_t, "R2_ss": R2_ss, "weigths": weight_matrix.tolist()}
         json.dump(Config, open(path2saveResults+"/Config_file.txt",'w'))
         
         if modelFit_mode == 'T':
@@ -1072,21 +1083,17 @@ for id1, Region in enumerate(Region_all):
         elif modelFit_mode == "C":
             R2_cur = [R2_c]
         elif modelFit_mode == "TC":
+            R2 = r2_score_own(P_ut, Stress_predict_axial)
             R2_cur = [R2] 
         elif modelFit_mode == "SS":
-            R2_cur = [R2ss]    
+            R2_cur = [R2_ss]    
         elif modelFit_mode == "TC_and_SS":
-            R2_cur = [R2ss, R2_c, R2_t]
+            R2_cur = [R2_ss, R2_c, R2_t]
          
         R2_all_Regions.append(R2_cur)
         print("R2: ", R2_cur) 
 
 
-        #### Transverse Stress Plot Convexity
-        model_biaxial = modelArchitectureBiaxial(Psi_model)
-        Convexity = model_biaxial.predict([lam_ut * 0 + 1.3, lam_ut])
-        plt.plot(lam_ut, Convexity)
-        plt.show()
             
 
     R2_all[id1,:] = np.array(flatten(R2_all_Regions))
