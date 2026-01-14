@@ -1,5 +1,5 @@
 # FungiSteak
-Citation: "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" https://www.biorxiv.org/content/10.1101/2025.04.17.649423v1
+Citation: "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" [https://www.biorxiv.org/content/10.1101/2025.04.17.649423v1](https://doi.org/10.1016/j.actbio.2025.07.002)
 
 ### Mechanical data
 Contains all rheometer raw data for the in-plane and cross-plane direction:
@@ -17,7 +17,7 @@ steaks.py: data analysis, statistics and plotting results
 - plottingArtMeat.py: plot the results
 
 # BiaxialDeliMeat
-Citation: "Biaxial testing and sensory texture perception of plant-based and animal deli meat" https://www.biorxiv.org/content/10.1101/2025.02.19.639170v1
+Citation: "Biaxial testing and sensory texture perception of plant-based and animal deli meat" [https://www.biorxiv.org/content/10.1101/2025.02.19.639170v1](https://doi.org/10.1016/j.crfs.2025.101080)
 
 ### CANN Input & Code
 Input: Biaxial extension with five loading modes for 4 plant-based deli meats and 4 animal deli meats. Loading modes are strip-y, off-y, equibiaxial, off-x, and strip-x.
