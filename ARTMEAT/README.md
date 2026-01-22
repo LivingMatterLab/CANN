@@ -4,11 +4,11 @@ Citation: "Mechanical, rheological, and sensory characterization of lion's mane 
 ### Mechanics
 - Tension, compression, and shear data at slow strain rate of 0.2%/s
 - Tension and shear up to 10% strain, compression to 20% strain
-- Raw and processed data
+- Raw and processed data (see steaks.py for example code of how to process data)
 
 ### Texture
 - Raw texture profile analyis data
-- omni_tpa.py: script for processing TPA data
+- omni_tpa.py: script for processing TPA data (adapted from steaks.py)
 
 ### Rheology
 - Frequency and amplitude sweep raw data
@@ -17,9 +17,6 @@ Citation: "Mechanical, rheological, and sensory characterization of lion's mane 
 ### KendallTau
 - KendallTau.xlsx: list of ordered rankings across mechanics, texture, and rheology
 - KendallTauStats.py: computing Kendall's tau and p-value for all pairs of rankings in correlation matrix
-
-### Processing 
-steaks.py: data analysis, statistics and plotting results
 
 # FungiSteak
 Citation: "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" https://doi.org/10.1016/j.actbio.2025.07.002
