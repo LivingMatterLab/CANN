@@ -1,5 +1,5 @@
 # LionsManeMushroomSteak
-Citation: "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" [https://doi.org/10.1016/j.actbio.2025.07.002](https://doi.org/10.64898/2026.01.19.700477)
+Citation: "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" https://doi.org/10.64898/2026.01.19.700477
 
 ### Mechanics
 - Tension, compression, and shear data at slow strain rate of 0.2%/s
