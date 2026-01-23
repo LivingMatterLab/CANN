@@ -2,7 +2,7 @@
 Citation: "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" https://doi.org/10.64898/2026.01.19.700477
 
 ### Mechanics
-- Tension, compression, and shear data at slow strain rate of 0.2%/s
+- Tension, compression, and shear data at strain rate of 0.2%/s
 - Tension and shear up to 10% strain, compression to 20% strain
 - Raw and processed data (see steaks.py for example code of how to process data)
 
