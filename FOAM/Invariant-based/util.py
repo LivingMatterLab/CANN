@@ -218,23 +218,12 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
     print("\n" + "=" * 80)
     print("STRAIN ENERGY EXPRESSION")
     print("=" * 80)
-
-    print("Mixed layer weights:")
-    print(mixed_layer.alpha_I1)
-    print(mixed_layer.alpha_I2)
-    
-    print("Single principal stretch layer weights:")
-    print(single_principal_stretch_layer.weights)
-    print(single_principal_stretch_layer2.weights)
     
     # Get the weights from the model
     weights = Psi_model.get_weights()
-    print("Full weights:")
-    print(weights)
     
     # Extract the final layer weights (these multiply each term)
     final_weights = weights[-1].flatten()
-    print("Number of final weights: ", len(final_weights))
     
     
     # Define the reduced invariants
@@ -242,7 +231,6 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
     print("  I1_bar = I1/J^(2/3) - 3")
     print("  I2_bar = I2/J^(4/3) - 3")
     print("  J = J")
-    print(weights)
     
     # Build the expression
     expression_terms = []
@@ -255,6 +243,11 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
             w_outer = final_weights[term_idx] ** 2 # Because of lp regularization, the weights are squared
             # Get the inner weight (coefficient inside the activation function)
             w_inner = weights[term_idx_inner][0][0]
+            if w_inner == 0:
+                w_inner = 1e-6 ## Avoid division by zero
+                if abs(w_outer) > 1e-6:  # Only show significant terms
+                    print("Division by zero warning")
+
             if i == 0:
                 expr = f"{format_value_sigfig(w_outer)} (\\bar I_1 - 3)"
             elif i == 1:
@@ -276,6 +269,11 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
         w_outer = final_weights[term_idx] ** 2 # Because of lp regularization, the weights are squared
         # Get the inner weight (coefficient inside the activation function)
         w_inner = weights[term_idx_inner][0][0]
+
+        if w_inner == 0:
+                w_inner = 1e-6 ## Avoid division by zero
+                if abs(w_outer) > 1e-6:  # Only show significant terms
+                    print("Division by zero warning")
         
         if i == 0:
             expr = f"{format_value_sigfig(w_outer)} (\\bar I_2 - 3)"
@@ -296,6 +294,10 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
         w_outer = final_weights[term_idx] ** 2 # Because of lp regularization, the weights are squared
         # Get the inner weight (coefficient inside the activation function)
         w_inner = weights[term_idx_inner][0][0]
+        if w_inner == 0:
+                w_inner = 1e-6 ## Avoid division by zero
+                if abs(w_outer) > 1e-6:  # Only show significant terms
+                    print("Division by zero warning")
         
         if i == 0:
             expr = f"{format_value_sigfig(2 * w_outer / w_inner ** 2)} (J^{{{format_value_sigfig(w_inner)}}} - {format_value_sigfig(w_inner)} \\ln(J) - 1)"
@@ -311,7 +313,10 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
         w_outer = final_weights[term_idx] ** 2 # Because of lp regularization, the weights are squared
         # Get the inner weight (coefficient inside the activation function)
         w_inner = weights[term_idx_inner][0][0]
-        print(w_inner)
+        if w_inner == 0:
+                w_inner = 1e-6 ## Avoid division by zero
+                if abs(w_outer) > 1e-6:  # Only show significant terms
+                    print("Division by zero warning")
         
         if i == 0:
             expr = f"{format_value_sigfig(w_outer)} J^{{{format_value_sigfig(w_inner)}}} (\\bar I_1 - 3) "
@@ -327,6 +332,10 @@ def display_strain_energy_expression(Psi_model, terms, mixed_layer, single_princ
         w_outer = final_weights[term_idx]
         # Get the inner weight (coefficient inside the activation function)
         w_inner = weights[term_idx_inner][0][0]
+        if w_inner == 0:
+                w_inner = 1e-6 ## Avoid division by zero
+                if abs(w_outer) > 1e-6:  # Only show significant terms
+                    print("Division by zero warning")
         
         if i == 0:
             expr = f"{format_value_sigfig(w_outer / w_inner ** 2)} \\sum_{{i=1}}^3(\\lambda_i^{{{format_value_sigfig(w_inner)}}} - {format_value_sigfig(w_inner)} \\ln(\\lambda_i) - 1)"

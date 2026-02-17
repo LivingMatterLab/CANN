@@ -710,15 +710,7 @@ def main():
     stretch_conf_com_table = np.linspace(np.min(stretch_conf_com), np.max(stretch_conf_com), n_pts_table)
     stress_conf_com_table = np.stack([np.interp(stretch_conf_com_table, stretch_conf_com[::-1, foam_idx], stress_conf_com[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     stress_conf_com_std_table = np.stack([np.interp(stretch_conf_com_table, stretch_conf_com[::-1, foam_idx], stress_conf_com_std[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
-    # print(stress_conf_com_table)
-    # print(stretch_conf_com_table)
-    # print(stress_conf_com_std_table)
-    # print(stretch_conf_com)
-    # print(stress_conf_com)
-    # print(stress_conf_com_std)
-    # print(stress_com)
-    # print(stretch_com)
-    # assert False
+
     print(stretch_ten_table.shape)
     # ---------- Create all plots at the end ----------
     # Create output directory
