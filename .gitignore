@@ -1,0 +1,8 @@
+__pycache__
+.DS_Store
+.idea
+MESH/Results
+GCANN/Results*
+GCANN/venv
+FOAM/Invariant-Based/Results/*
+*.tri

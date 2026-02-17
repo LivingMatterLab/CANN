@@ -6,6 +6,7 @@ from math import gamma
 from numpy import dtype, ndarray
 from numpy._typing._shape import _AnyShape
 from typing import Any
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -22,7 +23,7 @@ ColorI = [1.0, 0.65, 0.0]
 ColorS = [0.5, 0.00, 0.0]
 
 # Global font size for all plot text elements
-FONT_SIZE = 20
+FONT_SIZE = 30
 
 
 #%% Uts
@@ -128,7 +129,7 @@ def plotTrans(ax, lam_ut, P_ut, Stress_predict_trans, Region):
     P_plot = np.interp(lam_plot, lam_ut, P_ut)
     
     ax.scatter(lam_plot, P_plot, s=70, zorder=5, lw=2.5, facecolors='none', edgecolors='k', alpha=0.7, label=Region+' transverse data')
-    ax.set_ylabel(r'transverse stress [kPa]', fontsize=FONT_SIZE)
+    ax.set_ylabel('transverse\nstress\n[kPa]', fontsize=FONT_SIZE)
     ax.set_xlabel(r'stretch $\lambda$ [-]', fontsize=FONT_SIZE)
     ax.plot(lam_ut, Stress_predict_trans, label='model prediction', zorder=5, lw=2, color='blue')
     # R2_trans = r2_score_own(P_ut, Stress_predict_trans)
@@ -136,8 +137,8 @@ def plotTrans(ax, lam_ut, P_ut, Stress_predict_trans, Region):
     ax.tick_params(labelsize=FONT_SIZE)
     ax.set_title(f'transverse - {Region}', fontsize=FONT_SIZE, fontweight='bold')
 
-    
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
+    # Legend will be added externally by the calling function
+    # ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
     
     # return R2_trans
 
@@ -162,7 +163,7 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
     
     # Plot experimental data
     ax.scatter(lam_plot, P_plot, s=70, zorder=10, lw=2.5, facecolors='none', 
-               edgecolors='k', alpha=0.7, label=Region+' tension data')
+               edgecolors='k', alpha=0.7, label='experimental data')
     
     # Plot model prediction
     ax.plot(lam_tension, stress_tension, label='model prediction', zorder=9, lw=3, color='red')
@@ -172,7 +173,7 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
     num_terms = len(term_names)
     cmap = plt.cm.get_cmap('jet_r', num_terms)
     colors = [cmap(i) for i in range(num_terms)]
-    
+
     # Stack the contributions
     bottom = np.zeros_like(lam_tension)
     for i, (contrib, name) in enumerate(zip(tension_contributions, term_names)):
@@ -195,8 +196,8 @@ def plotTensionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_cont
     ax.set_xlabel(r'stretch [-]', fontsize=FONT_SIZE)
     ax.set_title(f'tension - {Region}', fontsize=FONT_SIZE, fontweight='bold')
     ax.tick_params(labelsize=FONT_SIZE)
-    # ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=FONT_SIZE)
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=FONT_SIZE)
+    # ax.legend(loc='center left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
 
     ax.grid(True, alpha=0.3)
     
@@ -222,7 +223,7 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
     
     # Plot experimental data (flipped axes: negative stress up, stretch decreasing left to right)
     ax.scatter(lam_plot, P_plot, s=70, zorder=10, lw=2.5, facecolors='none', 
-               edgecolors='k', alpha=0.7, label=Region+' compression data')
+               edgecolors='k', alpha=0.7, label=Region+' comp data')
     
     # Plot model prediction
     ax.plot(lam_compression, stress_compression, label='model prediction', zorder=9, lw=3, color='red')
@@ -235,7 +236,7 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
     
     # Stack the contributions
     bottom = np.zeros_like(lam_compression)
-    for i, (contrib, name) in enumerate[tuple[ndarray[_AnyShape, dtype[Any]] | ndarray[_AnyShape, dtype], Any]](zip(compression_contributions, term_names)):
+    for i, (contrib, name) in enumerate(zip(compression_contributions, term_names)):
         # Ensure contrib is 1-dimensional
         contrib_flat = np.array(contrib).flatten()
         if np.any(np.abs(contrib_flat) > 1e-6):  # Only plot significant contributions
@@ -259,7 +260,7 @@ def plotCompressionWithContributions(lam_ut, P_ut, Stress_predict_axial, stress_
     ax.set_xlabel(r'stretch $\lambda$ [-]', fontsize=FONT_SIZE)
     ax.set_title(f'compression - {Region}', fontsize=FONT_SIZE, fontweight='bold')
     ax.tick_params(labelsize=FONT_SIZE)
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
+    # ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -317,9 +318,173 @@ def plotShearWithContributions(gamma_ss, P_ss, Stress_predict_shear, stress_cont
     ax.set_xlabel(r'shear strain [-]', fontsize=FONT_SIZE)
     ax.set_title(f'shear - {Region}', fontsize=FONT_SIZE, fontweight='bold')
     ax.tick_params(labelsize=FONT_SIZE)
-    ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
+    # ax.legend(loc='upper left', fancybox=True, framealpha=0., fontsize=FONT_SIZE)
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
     return fig, R2_shear
 
+def plotAllContributions(lam_ut, P_ut, Stress_predict_axial, gamma_ss, P_ss, Stress_predict_shear, 
+                         stress_contributions, shear_stress_contributions, term_names, Region,
+                         Stress_predict_trans=None):
+    """Plot tension, compression, and shear data with stacked term contributions in a single figure with horizontal subplots.
+    Optionally includes transverse plot centered underneath."""
+    
+    if Stress_predict_trans is not None:
+        # Create 2x3 grid: top row has 3 plots, bottom row has transverse plot in the middle
+        # Height ratios: top row = 1, bottom row = 0.5 (half height)
+        fig = plt.figure(figsize=(30, 12))
+        gs = gridspec.GridSpec(2, 3, figure=fig, height_ratios=[1, 0.5], hspace=0.4, wspace=0.3)
+        ax_compression = fig.add_subplot(gs[0, 0])
+        ax_tension = fig.add_subplot(gs[0, 1])
+        ax_shear = fig.add_subplot(gs[0, 2])
+        ax_transverse = fig.add_subplot(gs[1, 1])  # Centered in bottom row
+    else:
+        fig, axes = plt.subplots(1, 3, figsize=(30, 8))
+        ax_compression, ax_tension, ax_shear = axes
+        ax_transverse = None
+    
+    # ========== COMPRESSION PLOT (left) ==========
+    midpoint = int(len(lam_ut) / 2)
+    lam_compression = lam_ut[:(midpoint + 1)]
+    P_compression = P_ut[:(midpoint + 1)]
+    stress_compression = Stress_predict_axial[:(midpoint + 1)]
+    
+    n_plot_pts = 16
+    lam_plot_comp = np.linspace(np.amin(lam_compression), np.amax(lam_compression), n_plot_pts)
+    P_plot_comp = np.interp(lam_plot_comp, lam_compression, P_compression)
+    compression_contributions = [contrib[:(midpoint + 1)] for contrib in stress_contributions]
+    
+    ax_compression.scatter(lam_plot_comp, P_plot_comp, s=70, zorder=10, lw=2.5, facecolors='none', 
+                          edgecolors='k', alpha=0.7, label=Region+' comp data')
+    ax_compression.plot(lam_compression, stress_compression, label='model prediction', zorder=9, lw=3, color='red')
+    
+    num_terms = len(term_names)
+    cmap = plt.cm.get_cmap('jet_r', num_terms)
+    colors = [cmap(i) for i in range(num_terms)]
+    
+    bottom = np.zeros_like(lam_compression)
+    for i, (contrib, name) in enumerate(zip(compression_contributions, term_names)):
+        contrib_flat = np.array(contrib).flatten()
+        if np.any(np.abs(contrib_flat) > 1e-6):
+            ax_compression.fill_between(lam_compression, bottom, bottom + contrib_flat, 
+                                       alpha=0.6, color=colors[i], label=name, zorder=5)
+            bottom += contrib_flat
+    
+    ax_compression.invert_xaxis()
+    ax_compression.invert_yaxis()
+    
+    R2_compression = r2_score_own(P_compression, stress_compression)
+    ax_compression.text(0.5, 0.95, r'$R^2$: '+f"{R2_compression:.3f}", transform=ax_compression.transAxes, 
+                       fontsize=FONT_SIZE, verticalalignment='top', horizontalalignment='center',
+                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    ax_compression.set_ylabel(r'axial stress $P$ [kPa]', fontsize=FONT_SIZE)
+    ax_compression.set_xlabel(r'stretch $\lambda$ [-]', fontsize=FONT_SIZE)
+    ax_compression.set_title(f'compression - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+    ax_compression.tick_params(labelsize=FONT_SIZE)
+    ax_compression.grid(True, alpha=0.3)
+    
+    # ========== TENSION PLOT (middle) ==========
+    lam_tension = lam_ut[midpoint:]
+    P_tension = P_ut[midpoint:]
+    stress_tension = Stress_predict_axial[midpoint:]
+    
+    lam_plot_tens = np.linspace(np.amin(lam_tension), np.amax(lam_tension), n_plot_pts)
+    P_plot_tens = np.interp(lam_plot_tens, lam_tension, P_tension)
+    tension_contributions = [contrib[midpoint:] for contrib in stress_contributions]
+    
+    ax_tension.scatter(lam_plot_tens, P_plot_tens, s=70, zorder=10, lw=2.5, facecolors='none', 
+                      edgecolors='k', alpha=0.7, label='experimental data')
+    ax_tension.plot(lam_tension, stress_tension, label='model prediction', zorder=9, lw=3, color='red')
+    
+    bottom = np.zeros_like(lam_tension)
+    for i, (contrib, name) in enumerate(zip(tension_contributions, term_names)):
+        contrib_flat = np.array(contrib).flatten()
+        if np.any(np.abs(contrib_flat) > 1e-6):
+            ax_tension.fill_between(lam_tension, bottom, bottom + contrib_flat, 
+                                   alpha=0.6, color=colors[i], label=name, zorder=5)
+            bottom += contrib_flat
+    
+    R2_tension = r2_score_own(P_tension, stress_tension)
+    ax_tension.text(0.5, 0.95, r'$R^2$: '+f"{R2_tension:.3f}", transform=ax_tension.transAxes, 
+                   fontsize=FONT_SIZE, verticalalignment='top', horizontalalignment='center',
+                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    ax_tension.set_ylabel(r'axial stress [kPa]', fontsize=FONT_SIZE)
+    ax_tension.set_xlabel(r'stretch [-]', fontsize=FONT_SIZE)
+    ax_tension.set_title(f'tension - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+    ax_tension.tick_params(labelsize=FONT_SIZE)
+    ax_tension.grid(True, alpha=0.3)
+    
+    # ========== SHEAR PLOT (right) ==========
+    midpoint_shear = len(gamma_ss) // 2
+    gamma_positive = gamma_ss[midpoint_shear:]
+    P_positive = P_ss[midpoint_shear:]
+    stress_positive = Stress_predict_shear[midpoint_shear:]
+    
+    gamma_plot = np.linspace(np.amin(gamma_positive), np.amax(gamma_positive), n_plot_pts)
+    P_plot_shear = np.interp(gamma_plot, gamma_positive, P_positive)
+    positive_contributions = [contrib[midpoint_shear:] for contrib in shear_stress_contributions]
+    
+    ax_shear.scatter(gamma_plot, P_plot_shear, s=70, zorder=10, lw=2.5, facecolors='none', 
+                    edgecolors='k', alpha=0.7, label=Region+' shear data')
+    ax_shear.plot(gamma_positive, stress_positive, label='model prediction', zorder=9, lw=3, color='red')
+    
+    bottom = np.zeros_like(gamma_positive)
+    for i, (contrib, name) in enumerate(zip(positive_contributions, term_names)):
+        contrib_flat = np.array(contrib).flatten()
+        if np.any(np.abs(contrib_flat) > 1e-6):
+            ax_shear.fill_between(gamma_positive, bottom, bottom + contrib_flat, 
+                                 alpha=0.6, color=colors[i], label=name, zorder=5)
+            bottom += contrib_flat
+    
+    R2_shear = r2_score_own(P_positive, stress_positive)
+    ax_shear.text(0.5, 0.95, r'$R^2$: '+f"{R2_shear:.3f}", transform=ax_shear.transAxes, 
+                 fontsize=FONT_SIZE, verticalalignment='top', horizontalalignment='center',
+                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    ax_shear.set_ylabel(r'shear stress [kPa]', fontsize=FONT_SIZE)
+    ax_shear.set_xlabel(r'shear strain [-]', fontsize=FONT_SIZE)
+    ax_shear.set_title(f'shear - {Region}', fontsize=FONT_SIZE, fontweight='bold')
+    ax_shear.tick_params(labelsize=FONT_SIZE)
+    ax_shear.grid(True, alpha=0.3)
+    
+    # Get handles and labels from the middle plot (tension) which has all terms for top row
+    handles_top, labels_top = ax_tension.get_legend_handles_labels()
+    
+    # Add transverse plot if provided
+    if Stress_predict_trans is not None and ax_transverse is not None:
+        plotTrans(ax_transverse, lam_ut, P_ut * 0.0, Stress_predict_trans, Region)
+        ax_transverse.grid(True, alpha=0.3)
+        
+        # Get handles and labels for transverse plot legend
+        handles_trans, labels_trans = ax_transverse.get_legend_handles_labels()
+    
+    # Position legends
+    # First, apply tight_layout to get the plot positions
+    plt.tight_layout(rect=[0, 0, 1, 1])
+    
+    # Get positions after tight_layout
+    bbox_compression = ax_compression.get_position()
+    bbox_tension = ax_tension.get_position()
+    bbox_shear = ax_shear.get_position()
+    
+    # Legend for top row: positioned to the right of all plots, vertically centered with top row
+    top_row_right = bbox_shear.x1  # Right edge of the rightmost plot
+    top_row_center_y = (bbox_tension.y0 + bbox_tension.y1) / 2  # Vertical center of top row
+    
+    # Place top row legend to the right, vertically centered with top row
+    fig.legend(handles_top, labels_top, loc='center left', 
+               bbox_to_anchor=(top_row_right, top_row_center_y), 
+               fontsize=FONT_SIZE, frameon=True)
+    
+    # Legend for transverse plot: centered to the right of the transverse plot
+    if Stress_predict_trans is not None and ax_transverse is not None:
+        bbox_transverse = ax_transverse.get_position()
+        trans_right_edge = bbox_transverse.x1  # Right edge of transverse plot
+        trans_center_y = bbox_transverse.y0 + bbox_transverse.height / 2  # Vertical center
+        
+        # Place transverse legend to the right, centered vertically
+        fig.legend(handles_trans, labels_trans, loc='center left',
+                   bbox_to_anchor=(trans_right_edge, trans_center_y),
+                   fontsize=FONT_SIZE, frameon=True)
+    
+    return fig, R2_compression, R2_tension, R2_shear
