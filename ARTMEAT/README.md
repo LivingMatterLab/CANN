@@ -1,5 +1,25 @@
+# LionsManeMushroomSteak
+Citation: "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" https://doi.org/10.64898/2026.01.19.700477
+
+### Mechanics
+- Tension, compression, and shear data at strain rate of 0.2%/s
+- Tension and shear up to 10% strain, compression to 20% strain
+- Raw and processed data (see steaks.py for example code of how to process data)
+
+### Texture
+- Raw texture profile analyis data
+- omni_tpa.py: script for processing TPA data (adapted from steaks.py)
+
+### Rheology
+- Frequency and amplitude sweep raw data
+- omni_rheology_plots.py: script for processing rheology data
+
+### KendallTau
+- KendallTau.xlsx: list of ordered rankings across mechanics, texture, and rheology
+- KendallTauStats.py: computing Kendall's tau and p-value for all pairs of rankings in correlation matrix
+
 # FungiSteak
-Citation: "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" https://www.biorxiv.org/content/10.1101/2025.04.17.649423v1
+Citation: "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" https://doi.org/10.1016/j.actbio.2025.07.002
 
 ### Mechanical data
 Contains all rheometer raw data for the in-plane and cross-plane direction:
@@ -17,7 +37,7 @@ steaks.py: data analysis, statistics and plotting results
 - plottingArtMeat.py: plot the results
 
 # BiaxialDeliMeat
-Citation: "Biaxial testing and sensory texture perception of plant-based and animal deli meat" https://www.biorxiv.org/content/10.1101/2025.02.19.639170v1
+Citation: "Biaxial testing and sensory texture perception of plant-based and animal deli meat" https://doi.org/10.1016/j.crfs.2025.101080
 
 ### CANN Input & Code
 Input: Biaxial extension with five loading modes for 4 plant-based deli meats and 4 animal deli meats. Loading modes are strip-y, off-y, equibiaxial, off-x, and strip-x.

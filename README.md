@@ -18,7 +18,9 @@ Models and data for animal and plant-based meat papers.
 	Revision summary: we have corrected two coding mistakes that had small effects on Table 4, Figures 8, 9, 10, 11, and the text starting on page 18 bottom; the revised code, updated table, figures, and text are all in this GitHub folder; the main findings of this study are not affected by these updates.
 
 2. Invariant-based model, "The mechanical and sensory signature of plant-based and animal meat" [https://doi.org/10.1101/2024.04.25.591207](https://doi.org/10.1038/s41538-024-00330-6)
-3. Invariant-based model, "Biaxial testing and sensory texture evaluation of plant-based and animal meat" https://www.biorxiv.org/content/10.1101/2025.02.19.639170v1
+3. Invariant-based model, "Biaxial testing and sensory texture evaluation of plant-based and animal meat" [https://doi.org/10.1016/j.crfs.2025.101080](https://doi.org/10.1016/j.crfs.2025.101080)
+4. Invariant-based model & data analysis scripts, "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" [https://doi.org/10.1016/j.actbio.2025.07.002](https://doi.org/10.1016/j.actbio.2025.07.002)
+5. Data and analysis scripts, "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" https://doi.org/10.64898/2026.01.19.700477
 
 ## BCANN
 Bayesian constitutive artifical neural network, "Discovering uncertainty: Bayesian constitutive artificial neural networks" https://doi.org/10.1101/2024.08.19.608595
@@ -28,11 +30,10 @@ Isotropic models and data for brain papers.
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
-## Graz
-Workshop for the Summer Biomechanics School 2023. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
-
 ## Heart
-Orthotropic model and shear and biaxial data for the heart, "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
+Orthotropic model and shear and biaxial data for heart papers.
+1. "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
+2. "Discovering dispersion: How robust is automated model discovery for human myocardial tissue?" https://doi.org/10.1007/s10237-025-02005-x
 
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
@@ -46,3 +47,11 @@ Anistropic constitutive artificial neural network model, "Automated model discov
 ## Mesh
 Knitted material anisotropic constitutive neural network, "Automated model discovery for textile structures: The unique mechanical signature of warp knitted fabrics" https://doi.org/10.1101/2024.07.26.605392
 
+## GCANN
+Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constitutive neural networks with correlated weights." https://doi.org/10.48550/arXiv.2503.12679
+
+## GICANN
+Generalized-invariant-based constitutive neural network, "Generalized invariants meet constitutive neural networks: A novel framework for hyperelastic materials." https://doi.org/10.1016/j.jmps.2025.106352
+
+## WORKSHOPS
+Code, slides, and data from the Graz Summer Biomechanics School in 2023 and the ESB conference short course in 2025. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
