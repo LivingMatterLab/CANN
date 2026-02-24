@@ -1,13 +1,17 @@
-# Input subfolders: brain data
-Uniaxial tension/compression and simple shear data for cortex, basal ganglia, corpus callosum, and corona radiata
+# Input subfolder: raw_data
+Contains all raw experimental data and sample dimension measurements for all experiments conducted in tension, shear, confined compression, and unconfined compression. 
 
-# Invariant-based
-Citation: "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
-1. CANN4brain_main.py: main code
-2. models_brain.py: build the CANN invariant model strain energy function and the neo Hooke, Blatz Ko, Mooney Rivlin, Demiray, Gent models
-3. plotting_brain.py: plot the results
+# Input file: \*_raw_data.xlsx
+Contains the processed data for tension, unconfined compression, and shear with data columns for time (seconds), deformation (stretch or shear strain), and stress (axial piola stress P11 or shear piola stress P12). 
 
-# Notebook_Inv_and_PrincStretch
-Citation: "Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
-1. BrainCANN_notebook_v4.ipynb: Jupyter Notebook to run principal-stretch and invariant models with colormap plots
-2. environment.yml: an environment set-up that works to run the Notebook
+# Input file: FoamData.xlsx
+Contains all the averaged elastic experimental data for tension, unconfined compression, and shear. The data columns are deformation (stretch or shear strain) and stress (axial piola stress P11 or shear piola stresss P12, average of loading and unloading)
+
+# elastic-cann
+Citation: "Discovering the mechanics of ultra-low density elastomeric foams in elite-level racing shoes." https://arxiv.org/abs/2602.12694
+1. main.py: main code
+2. models.py: build the CANN model with options to enable or disable single invariant terms, mixed invariant terms, and principal stretch terms. 
+3. plotting.py: Create plots of discovered models predictions and contributions of different terms
+4. util.py: Utility functions to parse data, setup training, and build a complete constitutive neural network based on the Psi model (model which maps invariants to strain energy).
+5. preprocessing.py: Standalone file which takes raw data from experiments and outputs processed \*_raw_data.xlsx and FoamData.xlsx, as well as plots and tables based on the raw data. 
+

@@ -1,9 +1,0 @@
-{
-    "python.defaultInterpreterPath": "/opt/anaconda3/envs/CANN/bin/python",
-    "python.terminal.activateEnvironment": true,
-    "python.terminal.activateEnvInCurrentTerminal": true,
-    "python.condaPath": "/opt/anaconda3/bin/conda",
-    "python.terminal.executeInFileDir": true,
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.typeCheckingMode": "basic"
-}

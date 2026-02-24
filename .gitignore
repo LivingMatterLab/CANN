@@ -4,5 +4,5 @@ __pycache__
 MESH/Results
 GCANN/Results*
 GCANN/venv
-FOAM/Invariant-Based/Results/*
+FOAM/elastic-cann/Results/*
 *.tri
