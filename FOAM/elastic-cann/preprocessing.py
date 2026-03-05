@@ -635,7 +635,8 @@ def main():
             time = time - time[0]
             shear_strain = disp_rad * radii_mm[sample_idx-1] / gap_mm[0]
             stretch = shear_strain * 0.0 + 0.8
-            stress_kpa = force_n / (np.pi * radii_mm[sample_idx-1]**3 / 2.0) * 1000.0
+            stress_kpa = torque_nmm / (np.pi * radii_mm[sample_idx-1]**3 / 2.0) * 1000.0
+      
 
             ## Write time, stretch, shear_strain and stress to a sheet in an excel file named "raw_data.xlsx"
             df = pd.DataFrame({'time_s': time, 'stretch': stretch, 'shear_strain': shear_strain, 'stress_kpa': stress_kpa})
