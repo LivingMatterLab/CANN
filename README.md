@@ -21,6 +21,7 @@ Models and data for animal and plant-based meat papers.
 3. Invariant-based model, "Biaxial testing and sensory texture evaluation of plant-based and animal meat" [https://doi.org/10.1016/j.crfs.2025.101080](https://doi.org/10.1016/j.crfs.2025.101080)
 4. Invariant-based model & data analysis scripts, "Probing mycelium mechanics and taste: The moist and fibrous signature of fungi steak" [https://doi.org/10.1016/j.actbio.2025.07.002](https://doi.org/10.1016/j.actbio.2025.07.002)
 5. Data and analysis scripts, "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" https://doi.org/10.64898/2026.01.19.700477
+6. Transversely isotropic model for fungi, "When structure does not imply symmetry" https://doi.org/10.48550/arXiv.2604.15682
 
 ## BCANN
 Bayesian constitutive artifical neural network, "Discovering uncertainty: Bayesian constitutive artificial neural networks" https://doi.org/10.1101/2024.08.19.608595

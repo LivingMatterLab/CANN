@@ -1,3 +1,15 @@
+# FungiComparison
+Citation: "When structures does not imply symmetry" https://doi.org/10.48550/arXiv.2604.15682
+
+### Data
+- All_Fungi_Data.xlsx: Tension, compression, shear mean and standard deviation data for all three fungi-based steaks
+- Stiffness_All_Fungi.xlsx: Processed linear stiffnesses for all three fungi-based steaks
+- Survey_All.xlsx: De-identified texture survey data
+
+### CANN
+- fungi_transverseisotropic_cann.py: Transversely isotropic constitutive neural network code
+- CANNs_Fungi_Data.xlsx: Data to run CANN code with
+
 # LionsManeMushroomSteak
 Citation: "Mechanical, rheological, and sensory characterization of lion's mane mushroom steak" https://doi.org/10.64898/2026.01.19.700477
 
