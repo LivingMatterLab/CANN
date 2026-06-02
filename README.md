@@ -55,4 +55,4 @@ Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constit
 Generalized-invariant-based constitutive neural network, "Generalized invariants meet constitutive neural networks: A novel framework for hyperelastic materials." https://doi.org/10.1016/j.jmps.2025.106352
 
 ## WORKSHOPS
-Code, slides, and data from the Graz Summer Biomechanics School in 2023 and the ESB conference short course in 2025. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
+Code, slides, and data from ME233: Automated Model Discovery Winter 2026, Graz Summer Biomechanics School in 2023, and the ESB conference short course in 2025. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
