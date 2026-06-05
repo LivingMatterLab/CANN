@@ -6,6 +6,7 @@ Ensure your data folder structure matches the MATLAB script expectations.
 """
 
 import os
+from enum import StrEnum
 from zipfile import BadZipFile
 import numpy as np
 import pandas as pd
@@ -23,9 +24,10 @@ root_folder = "./input/raw_data/asics/worn-shoe/" if worn_shoe else "./input/raw
 transverse_folder = "./input/data_mm/"
 out_dir = "./input/"
 
-colors = ["r", "g", "b", "k", "c", "m"] if worn_shoe else ["r", "b"]
+colors = ["r", "g", "b"] * 2 if worn_shoe else ["r", "b"]
+linestyles = (["-"] * 3 + ["--"] * 3) if worn_shoe else ["-", "-"]
 foam_types = ["new-toe", "new-heel", "new-mid", "worn-toe", "worn-heel", "worn-mid"] if worn_shoe else ["leap", "turbo"]
-foam_types_title = foam_types if worn_shoe else ["FF LEAP\u2122", "FF TURBO\u2122 PLUS"] 
+foam_types_title = [x.replace("-", " ").title() for x in foam_types] if worn_shoe else ["FF LEAP\u2122", "FF TURBO\u2122 PLUS"] 
 
 header = 0 if worn_shoe else None
 
@@ -70,7 +72,66 @@ def fmt_ci_value(x):
     """Format confidence interval bounds for LaTeX tables."""
     if not np.isfinite(x):
         return ""
-    return rf"${x:.2f}$"
+    if abs(x) >= 10:
+        return rf"${int(np.round(x))}$"
+    if x == 0:
+        return r"$0$"
+    return rf"${x:.2g}$"
+
+
+def format_with_phantoms(val, std, max_digits=3, decimal_places=2):
+    """Format mean ± std for stress tables with LaTeX phantoms for alignment."""
+    scale = 10 ** decimal_places
+    zero_frac = "0" * decimal_places
+
+    val_sign = -1 if val < 0 else 1
+    val_abs = abs(val)
+    val_rounded = np.round(val_abs, decimal_places)
+    val_int = int(val_rounded)
+    val_frac_raw = val_rounded - val_int
+    val_frac = int(np.round(val_frac_raw * scale))
+    if val_frac < 0:
+        val_frac = 0
+    elif val_frac >= scale:
+        val_int += 1
+        val_frac = 0
+
+    std_sign = -1 if std < 0 else 1
+    std_abs = abs(std)
+    std_rounded = np.round(std_abs, decimal_places)
+    std_int = int(std_rounded)
+    std_frac_raw = std_rounded - std_int
+    std_frac = int(np.round(std_frac_raw * scale))
+    if std_frac < 0:
+        std_frac = 0
+    elif std_frac >= scale:
+        std_int += 1
+        std_frac = 0
+
+    val_digits = len(str(val_int)) if val_int != 0 else 1
+    std_digits = len(str(std_int)) if std_int != 0 else 1
+
+    val_phantom = r"\phantom{0}" * max(0, max_digits - val_digits)
+    std_phantom = r"\phantom{0}" * max(0, max_digits - std_digits)
+
+    if val_int == 0 and val_frac == 0:
+        val_str = rf"\phantom{{0}}\phantom{{0}}0.{zero_frac}"
+    elif val_int == 0:
+        val_str = rf"\phantom{{0}}\phantom{{0}}0.{val_frac:0{decimal_places}d}"
+    else:
+        sign_str = "-" if val_sign < 0 else ""
+        val_str = rf"{sign_str}{val_phantom}{val_int}.{val_frac:0{decimal_places}d}"
+
+    if std_int == 0 and std_frac == 0:
+        std_str = rf"\phantom{{0}}\phantom{{0}}0.{zero_frac}"
+    elif std_int == 0:
+        std_str = rf"\phantom{{0}}\phantom{{0}}0.{std_frac:0{decimal_places}d}"
+    else:
+        sign_str = "-" if std_sign < 0 else ""
+        std_str = rf"{sign_str}{std_phantom}{std_int}.{std_frac:0{decimal_places}d}"
+
+    return rf"{val_str}\hspace{{0.5em}}$\pm$ {std_str}"
+
 
 # ---------- Utility functions ----------
 
@@ -1004,6 +1065,726 @@ def process_data():
 
     
 
+# ---------- Plotting ----------
+def save_figure(fig, output_dir, filename, bbox_inches="tight"):
+    """Save figure as PDF and PNG with the same basename."""
+    os.makedirs(output_dir, exist_ok=True)
+    stem, _ = os.path.splitext(filename)
+    for fmt in ("pdf", "png"):
+        fig.savefig(os.path.join(output_dir, f"{stem}.{fmt}"), format=fmt, bbox_inches=bbox_inches)
+
+
+def plot_difference_ci(
+    all_data_stress,
+    ci_min_all,
+    ci_max_all,
+    stretch_ten,
+    stretch_com,
+    strain_shr,
+    regions,
+    modes,
+    output_dir="./Results/RawData",
+):
+    """New vs worn mean stress difference with 95% bootstrap CI (3x3 grid)."""
+    fig, axes = plt.subplots(3, 3, figsize=(14, 12))
+    x_data_by_mode = [stretch_ten, stretch_com, strain_shr]
+    y_labels = [
+        r"$P_{11,\mathrm{new}} - P_{11,\mathrm{worn}}$ [kPa]",
+        r"$|P_{11,\mathrm{new}}| - |P_{11,\mathrm{worn}}|$ [kPa]",
+        r"$P_{12,\mathrm{new}} - P_{12,\mathrm{worn}}$ [kPa]",
+    ]
+    x_labels = ["Stretch [-]", "Stretch [-]", "Shear strain [-]"]
+    for mode in range(3):
+        x_all = x_data_by_mode[mode]
+        for region in range(3):
+            ax = axes[mode, region]
+            stress_data_new = all_data_stress[mode, region, 0, :, :]
+            stress_data_worn = all_data_stress[mode, region, 1, :, :]
+            mean_new = np.mean(stress_data_new, axis=0)
+            mean_worn = np.mean(stress_data_worn, axis=0)
+            mean_diff = mean_new - mean_worn
+            ci_min = ci_min_all[mode, region]
+            ci_max = ci_max_all[mode, region]
+            x = x_all[:, region]
+            ax.plot(x, mean_diff, label="Mean Difference")
+            ax.fill_between(x, mean_diff + ci_min, mean_diff + ci_max, alpha=0.2, label="95% CI")
+            ax.set_title(f"{modes[mode].capitalize()} - {regions[region].replace("worn-", "").capitalize()}", fontsize=FONT_SIZE)
+            ax.grid(True)
+            if region == 0:
+                ax.set_ylabel(y_labels[mode], fontsize=FONT_SIZE)
+            if mode == 2:
+                ax.set_xlabel(x_labels[mode], fontsize=FONT_SIZE)
+            if mode == 0 and region == 2:
+                ax.legend(fontsize=FONT_SIZE)
+            if mode == 1: 
+                ax.invert_xaxis()
+    fig.suptitle("New - Worn Mean Stress Difference with 95% CI", fontsize=FONT_SIZE, fontweight="bold")
+    plt.tight_layout()
+    save_figure(fig, output_dir, "DifferenceCI.pdf")
+    plt.close(fig)
+
+
+class LoadingMode(StrEnum):
+    TENSION = "tension"
+    COMPRESSION = "compression"
+    SHEAR = "shear"
+    CONFINED_COMPRESSION = "confined_compression"
+
+    @property
+    def plot_title(self) -> str:
+        if self is LoadingMode.CONFINED_COMPRESSION:
+            return "Confined Compression"
+        return self.capitalize()
+
+    @property
+    def plot_filename(self) -> str:
+        if self is LoadingMode.CONFINED_COMPRESSION:
+            return "ConfinedCompression.pdf"
+        return f"{self.capitalize()}.pdf"
+
+    @property
+    def transverse_plot_filename(self) -> str:
+        return f"{self.capitalize()}Transverse.pdf"
+
+
+_TRANSVERSE_LOADING_MODES = frozenset({LoadingMode.TENSION, LoadingMode.COMPRESSION})
+
+
+def plot_stress(
+    mode,
+    show_error_bars,
+    x,
+    stress,
+    stress_std,
+    x_table,
+    stress_table,
+    n_materials,
+    output_dir,
+):
+    """Plot mean stress vs stretch/strain with std band and table resample markers."""
+    if not isinstance(mode, LoadingMode):
+        raise ValueError(f"mode must be one of {tuple(LoadingMode)}, got {mode!r}")
+
+    title = mode.plot_title
+    filename = mode.plot_filename
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    for foam_idx in range(n_materials):
+        ax.plot(x[:, foam_idx], stress[:, foam_idx], colors[foam_idx] + linestyles[foam_idx], label=f"{foam_types_title[foam_idx]}")
+        ax.plot(x_table, stress_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
+        if show_error_bars:
+            ax.fill_between(
+                x[:, foam_idx],
+                stress[:, foam_idx] - stress_std[:, foam_idx],
+                stress[:, foam_idx] + stress_std[:, foam_idx],
+                color=colors[foam_idx],
+                alpha=0.25,
+            )
+    if mode in (LoadingMode.COMPRESSION, LoadingMode.CONFINED_COMPRESSION):
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+    if mode == LoadingMode.TENSION:
+        ax.set_xlim(1.0, 1.3)
+    xlabel = "Shear Strain [-]" if mode == LoadingMode.SHEAR else "Stretch [-]"
+    ylabel = "Shear Stress [kPa]" if mode == LoadingMode.SHEAR else "Stress [kPa]"
+    ax.set_xlabel(xlabel, fontsize=FONT_SIZE)
+    ax.set_ylabel(ylabel, fontsize=FONT_SIZE)
+    ax.set_title(title, fontsize=FONT_SIZE)
+    if mode == LoadingMode.SHEAR:
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.05))
+        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.legend(fontsize=FONT_SIZE)
+    ax.grid(True)
+    plt.tight_layout()
+    save_figure(fig, output_dir, filename)
+    plt.close(fig)
+
+
+def plot_transverse_stretch(
+    mode,
+    show_error_bars,
+    axial_stretch,
+    transverse_stretch,
+    transverse_stretch_std,
+    n_materials,
+    output_dir,
+):
+    """Plot transverse stretch vs axial stretch with optional std band."""
+    if not isinstance(mode, LoadingMode):
+        raise ValueError(f"mode must be one of {tuple(LoadingMode)}, got {mode!r}")
+    if mode not in _TRANSVERSE_LOADING_MODES:
+        raise ValueError(f"transverse plot mode must be tension or compression, got {mode!r}")
+
+    title = mode.capitalize()
+    filename = mode.transverse_plot_filename
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    for foam_idx in range(n_materials):
+        ax.plot(
+            axial_stretch[:, foam_idx],
+            transverse_stretch[:, foam_idx],
+            colors[foam_idx] + linestyles[foam_idx],
+            label=f"{foam_types_title[foam_idx]}",
+        )
+        if show_error_bars:
+            ax.fill_between(
+                axial_stretch[:, foam_idx],
+                transverse_stretch[:, foam_idx] - transverse_stretch_std[:, foam_idx],
+                transverse_stretch[:, foam_idx] + transverse_stretch_std[:, foam_idx],
+                color=colors[foam_idx],
+                alpha=0.25,
+            )
+    if mode == LoadingMode.COMPRESSION:
+        ax.invert_xaxis()
+    if mode == LoadingMode.TENSION:
+        ax.invert_yaxis()
+    ax.set_xlabel("Axial Stretch [-]", fontsize=FONT_SIZE)
+    ax.set_ylabel("Transverse Stretch [-]", fontsize=FONT_SIZE)
+    ax.set_title(title, fontsize=FONT_SIZE)
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.legend(fontsize=FONT_SIZE)
+    ax.grid(True)
+    plt.tight_layout()
+    save_figure(fig, output_dir, filename)
+    plt.close(fig)
+
+
+def plot_individual_samples(
+    foam_idx,
+    individual_samples_tension,
+    individual_samples_compression,
+    individual_samples_shear,
+    individual_samples_conf_compression,
+    output_dir,
+):
+    """5x4 subplot figure: individual tension/compression/shear/confined samples for one material."""
+    fig, axes = plt.subplots(5, 4, figsize=(14, 16))
+    fig.suptitle(f"{foam_types_title[foam_idx]} - Individual Samples", fontsize=FONT_SIZE, fontweight="bold")
+
+    ten_x_min, ten_x_max, ten_y_min, ten_y_max = np.inf, -np.inf, np.inf, -np.inf
+    for sample_idx in range(len(individual_samples_tension[foam_idx])):
+        sample_data = individual_samples_tension[foam_idx][sample_idx]
+        ten_x_min = min(ten_x_min, np.nanmin(sample_data["stretch"]))
+        ten_x_max = max(ten_x_max, np.nanmax(sample_data["stretch"]))
+        ten_y_min = min(ten_y_min, np.nanmin(sample_data["stress"]))
+        ten_y_max = max(ten_y_max, np.nanmax(sample_data["stress"]))
+
+    com_x_min, com_x_max, com_y_min, com_y_max = np.inf, -np.inf, np.inf, -np.inf
+    for sample_idx in range(len(individual_samples_compression[foam_idx])):
+        sample_data = individual_samples_compression[foam_idx][sample_idx]
+        com_x_min = min(com_x_min, np.nanmin(sample_data["stretch"]))
+        com_x_max = max(com_x_max, np.nanmax(sample_data["stretch"]))
+        com_y_min = min(com_y_min, np.nanmin(sample_data["stress"]))
+        com_y_max = max(com_y_max, np.nanmax(sample_data["stress"]))
+
+    conf_com_x_min = conf_com_x_max = conf_com_y_min = conf_com_y_max = None
+    if not worn_shoe:
+        conf_com_x_min, conf_com_x_max, conf_com_y_min, conf_com_y_max = np.inf, -np.inf, np.inf, -np.inf
+        for sample_idx in range(len(individual_samples_conf_compression[foam_idx])):
+            sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
+            conf_com_x_min = min(conf_com_x_min, np.nanmin(sample_data["stretch"]))
+            conf_com_x_max = max(conf_com_x_max, np.nanmax(sample_data["stretch"]))
+            conf_com_y_min = min(conf_com_y_min, np.nanmin(sample_data["stress"]))
+            conf_com_y_max = max(conf_com_y_max, np.nanmax(sample_data["stress"]))
+
+    shr_x_min, shr_x_max, shr_y_min, shr_y_max = np.inf, -np.inf, np.inf, -np.inf
+    for sample_idx in range(len(individual_samples_shear[foam_idx])):
+        sample_data = individual_samples_shear[foam_idx][sample_idx]
+        shr_x_min = min(shr_x_min, np.nanmin(sample_data["strain"]))
+        shr_x_max = max(shr_x_max, np.nanmax(sample_data["strain"]))
+        shr_y_min = min(shr_y_min, np.nanmin(sample_data["stress"]))
+        shr_y_max = max(shr_y_max, np.nanmax(sample_data["stress"]))
+
+    for sample_idx in range(5):
+        ax = axes[sample_idx, 0]
+        if sample_idx < len(individual_samples_tension[foam_idx]):
+            sample_data = individual_samples_tension[foam_idx][sample_idx]
+            ax.plot(sample_data["stretch"], sample_data["stress"], colors[foam_idx], linewidth=1.5)
+        ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
+        ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+        ax.set_title(f"Tension \n Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+        ax.tick_params(labelsize=FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        if ten_x_max > ten_x_min and ten_y_max > ten_y_min:
+            ax.set_xlim(1.0, 1.3)
+            ax.set_ylim(ten_y_min, ten_y_max)
+
+    for sample_idx in range(5):
+        ax = axes[sample_idx, 1]
+        if sample_idx < len(individual_samples_compression[foam_idx]):
+            sample_data = individual_samples_compression[foam_idx][sample_idx]
+            ax.plot(sample_data["stretch"], sample_data["stress"], colors[foam_idx], linewidth=1.5)
+        ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
+        ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+        ax.set_title(f"Compression \n Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+        ax.tick_params(labelsize=FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        if com_x_max > com_x_min and com_y_max > com_y_min:
+            ax.set_xlim(com_x_min, com_x_max)
+            ax.set_ylim(com_y_min, com_y_max)
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+
+    for sample_idx in range(5):
+        ax = axes[sample_idx, 2]
+        if sample_idx < len(individual_samples_shear[foam_idx]):
+            sample_data = individual_samples_shear[foam_idx][sample_idx]
+            ax.plot(sample_data["strain"], sample_data["stress"], colors[foam_idx], linewidth=1.5)
+        ax.set_xlabel("Shear Strain [-]", fontsize=FONT_SIZE)
+        ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+        ax.set_title(f"Shear \n Sample {sample_idx + 1}", fontsize=FONT_SIZE)
+        ax.tick_params(labelsize=FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        if shr_x_max > shr_x_min and shr_y_max > shr_y_min:
+            ax.set_xlim(shr_x_min, shr_x_max)
+            ax.set_ylim(shr_y_min, shr_y_max)
+
+    if not worn_shoe:
+        for sample_idx in range(5):
+            ax = axes[sample_idx, 3]
+            if sample_idx < len(individual_samples_conf_compression[foam_idx]):
+                sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
+                ax.plot(sample_data["stretch"], sample_data["stress"], colors[foam_idx], linewidth=1.5)
+            ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
+            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
+            ax.set_title(f"Confined Compression\nSample {sample_idx + 1}", fontsize=FONT_SIZE)
+            ax.tick_params(labelsize=FONT_SIZE)
+            ax.grid(True, alpha=0.3)
+            if conf_com_x_max > conf_com_x_min and conf_com_y_max > conf_com_y_min:
+                ax.set_xlim(conf_com_x_min, conf_com_x_max)
+                ax.set_ylim(conf_com_y_min, conf_com_y_max)
+            ax.invert_xaxis()
+            ax.invert_yaxis()
+
+    plt.tight_layout()
+    filename = f"{foam_types[foam_idx]}_individual_samples.pdf"
+    save_figure(fig, output_dir, filename)
+    plt.close(fig)
+
+
+# ---------- Table generation ----------
+def _latex_tabular_from_tabulate(data, headers, colspec):
+    table = tabulate(data, headers=headers, tablefmt="latex_raw")
+    return table.replace(table.split("\n", 1)[0], rf"\begin{{tabular}}{{{colspec}}}", 1)
+
+
+def save_anova_table(anova_p_values, output_dir="./Results/RawData"):
+    test_names = np.array(
+        [
+            "6 way",
+            "New vs Worn (toe)",
+            "New vs Worn (heel)",
+            "New vs Worn (mid)",
+            "Toe vs Mid vs Heel",
+            "Toe vs Heel",
+            "Toe vs Mid",
+            "Mid vs Heel",
+        ]
+    )[:, np.newaxis]
+    headers = [
+        r"\makecell{Test Name}",
+        r"\makecell{Toe \\ Worn}",
+        r"\makecell{Toe \\ New}",
+        r"\makecell{Heel \\ Worn}",
+        r"\makecell{Heel \\ New}",
+        r"\makecell{Mid \\ Worn}",
+        r"\makecell{Mid \\ New}",
+        r"\makecell{$p$ Value \\ Ten}",
+        r"\makecell{$p$ Value \\ Com}",
+        r"\makecell{$p$ Value \\ Shear}",
+    ]
+    group_data = np.array(
+        [
+            [1, 2, 3, 4, 5, 6],
+            [1, 2, 0, 0, 0, 0],
+            [0, 0, 1, 2, 0, 0],
+            [0, 0, 0, 0, 1, 2],
+            [1, 1, 2, 2, 3, 3],
+            [1, 1, 2, 2, 0, 0],
+            [1, 1, 0, 0, 2, 2],
+            [0, 0, 1, 1, 2, 2],
+        ]
+    )
+    group_data_formatted = np.where(group_data == 0, "", group_data.astype(object))
+    anova_p_values_formatted = np.vectorize(fmt_p_value)(anova_p_values)
+    data = np.concatenate([test_names, group_data_formatted, anova_p_values_formatted], axis=1)
+    table = _latex_tabular_from_tabulate(data, headers, r"|l||c|c|c|c|c|c||l|l|l|")
+    print(table)
+    os.makedirs(output_dir, exist_ok=True)
+    anova_table_path = os.path.join(output_dir, "anova_table.tex")
+    with open(anova_table_path, "w") as f:
+        f.write(table)
+    print(f"ANOVA table saved to: {anova_table_path}")
+
+
+def save_confidence_interval_table(ci_min_all, ci_max_all, regions, output_dir="./Results/RawData"):
+    ci_headers = [
+        r"\makecell{Region}",
+        r"\makecell{Tension \\ Lower}",
+        r"\makecell{Tension \\ Upper}",
+        r"\makecell{Compression \\ Lower}",
+        r"\makecell{Compression \\ Upper}",
+        r"\makecell{Shear \\ Lower}",
+        r"\makecell{Shear \\ Upper}",
+    ]
+    ci_rows = []
+    for region in range(3):
+        row = [regions[region].capitalize()]
+        for mode in range(3):
+            row.append(fmt_ci_value(ci_min_all[mode, region]))
+            row.append(fmt_ci_value(ci_max_all[mode, region]))
+        ci_rows.append(row)
+    ci_table = _latex_tabular_from_tabulate(ci_rows, ci_headers, r"|l||c|c||c|c||c|c|")
+    print("\nConfidence interval table:")
+    print(ci_table)
+    os.makedirs(output_dir, exist_ok=True)
+    ci_table_path = os.path.join(output_dir, "confidence_interval_table.tex")
+    with open(ci_table_path, "w") as f:
+        f.write(ci_table)
+    print(f"Confidence interval table saved to: {ci_table_path}")
+
+
+def build_hysteresis_table_latex(
+    hysteresis_ten,
+    hysteresis_com,
+    hysteresis_shear,
+    hysteresis_ten_samples,
+    hysteresis_com_samples,
+    hysteresis_shear_samples,
+    n_materials,
+):
+    ten_means = hysteresis_ten * 100.0
+    com_means = hysteresis_com * 100.0
+    shr_means = hysteresis_shear * 100.0
+    ten_stds = np.array([np.std(np.array(hysteresis_ten_samples[i]), ddof=0) for i in range(n_materials)]) * 100.0
+    com_stds = np.array([np.std(np.array(hysteresis_com_samples[i]), ddof=0) for i in range(n_materials)]) * 100.0
+    shr_stds = np.array([np.std(np.array(hysteresis_shear_samples[i]), ddof=0) for i in range(n_materials)]) * 100.0
+
+    lines = []
+    lines.append(r"\begin{tabular}{lccc}")
+    lines.append(r"\hline")
+    lines.append(r"Material & Tension & Compression & Shear \\")
+    lines.append(r"\hline")
+    for foam_idx, foam in enumerate(foam_types):
+        lines.append(
+            f"{foam} & "
+            f"{ten_means[foam_idx]:.1f} $\\pm$ {ten_stds[foam_idx]:.1f} & "
+            f"{com_means[foam_idx]:.1f} $\\pm$ {com_stds[foam_idx]:.1f} & "
+            f"{shr_means[foam_idx]:.1f} $\\pm$ {shr_stds[foam_idx]:.1f} \\\\"
+        )
+    lines.append(r"\hline")
+    lines.append(r"\end{tabular}")
+    return "\n".join(lines)
+
+
+def save_hysteresis_table(
+    hysteresis_ten,
+    hysteresis_com,
+    hysteresis_shear,
+    hysteresis_ten_samples,
+    hysteresis_com_samples,
+    hysteresis_shear_samples,
+    n_materials,
+    output_dir="./Results/RawData",
+):
+    print("\n--- Hysteresis Values ---")
+    hysteresis_table = build_hysteresis_table_latex(
+        hysteresis_ten,
+        hysteresis_com,
+        hysteresis_shear,
+        hysteresis_ten_samples,
+        hysteresis_com_samples,
+        hysteresis_shear_samples,
+        n_materials,
+    )
+    print(hysteresis_table)
+    os.makedirs(output_dir, exist_ok=True)
+    hysteresis_table_path = os.path.join(output_dir, "hysteresis_table.tex")
+    with open(hysteresis_table_path, "w") as f:
+        f.write(hysteresis_table)
+    print(f"\nHysteresis table saved to: {hysteresis_table_path}\n")
+
+
+def build_stiffness_table_latex(stiffness_ten, stiffness_com, stiffness_shear, stiffness_ten_std, stiffness_com_std, stiffness_shear_std):
+    lines = []
+    lines.append(r"\begin{tabular}{lccc}")
+    lines.append(r"\hline")
+    lines.append(r"Material & Tension & Compression & Shear \\")
+    lines.append(r"\hline")
+    for foam_idx, foam in enumerate(foam_types):
+        lines.append(
+            f"{foam} & "
+            f"{stiffness_ten[foam_idx]:.1f} $\\pm$ {stiffness_ten_std[foam_idx]:.1f} & "
+            f"{stiffness_com[foam_idx]:.1f} $\\pm$ {stiffness_com_std[foam_idx]:.1f} & "
+            f"{stiffness_shear[foam_idx]:.1f} $\\pm$ {stiffness_shear_std[foam_idx]:.1f} \\\\"
+        )
+    lines.append(r"\hline")
+    lines.append(r"\end{tabular}")
+    return "\n".join(lines)
+
+
+def save_stiffness_table(
+    stiffness_ten,
+    stiffness_com,
+    stiffness_shear,
+    stiffness_ten_std,
+    stiffness_com_std,
+    stiffness_shear_std,
+    output_dir="./Results/RawData",
+):
+    print("\n--- Stiffness Values ---")
+    stiffness_table = build_stiffness_table_latex(
+        stiffness_ten, stiffness_com, stiffness_shear, stiffness_ten_std, stiffness_com_std, stiffness_shear_std
+    )
+    print(stiffness_table)
+    os.makedirs(output_dir, exist_ok=True)
+    stiffness_table_path = os.path.join(output_dir, "stiffness_table.tex")
+    with open(stiffness_table_path, "w") as f:
+        f.write(stiffness_table)
+    print(f"\nStiffness table saved to: {stiffness_table_path}\n")
+
+
+def build_stress_table_latex(
+    mat,
+    stretch_ten_table,
+    stress_ten_table,
+    stress_ten_std_table,
+    transverse_stretch_ten_table,
+    transverse_stretch_ten_std_table,
+    stretch_com_table,
+    stress_com_table,
+    stress_com_std_table,
+    transverse_stretch_com_table,
+    transverse_stretch_com_std_table,
+    strain_shr_table,
+    stress_shr_table,
+    stress_shr_std_table,
+    stiffness_ten,
+    stiffness_ten_std,
+    stiffness_com,
+    stiffness_com_std,
+    stiffness_shear,
+    stiffness_shear_std,
+    hysteresis_ten_samples,
+    hysteresis_com_samples,
+    hysteresis_shear_samples,
+):
+    foam_name = foam_types[mat]
+    ten_stretch = stretch_ten_table
+    ten_stress = stress_ten_table[:, mat]
+    ten_std = stress_ten_std_table[:, mat]
+    ten_trans = transverse_stretch_ten_table[:, mat]
+    ten_trans_std = transverse_stretch_ten_std_table[:, mat]
+    com_stretch = stretch_com_table[::-1]
+    com_stress = -stress_com_table[::-1, mat]
+    com_std = stress_com_std_table[::-1, mat]
+    com_trans = transverse_stretch_com_table[::-1, mat]
+    com_trans_std = transverse_stretch_com_std_table[::-1, mat]
+    shr_strain = strain_shr_table
+    shr_stress = stress_shr_table[:, mat]
+    shr_std = stress_shr_std_table[:, mat]
+
+    E_ten = stiffness_ten[mat]
+    E_ten_std = stiffness_ten_std[mat]
+    E_com = stiffness_com[mat]
+    E_com_std = stiffness_com_std[mat]
+    G_shr = stiffness_shear[mat]
+    G_shr_std = stiffness_shear_std[mat]
+    energy_return_ten = np.mean(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_ten_samples[mat]])) * 100.0
+    energy_return_ten_std = np.std(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_ten_samples[mat]]), ddof=0) * 100.0
+    energy_return_com = np.mean(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_com_samples[mat]])) * 100.0
+    energy_return_com_std = np.std(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_com_samples[mat]]), ddof=0) * 100.0
+    energy_return_shr = np.mean(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_shear_samples[mat]])) * 100.0
+    energy_return_shr_std = np.std(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_shear_samples[mat]]), ddof=0) * 100.0
+
+    lines = []
+    lines.append(r"\begin{table*}[h]")
+    lines.append(
+        rf"\caption{{\sffamily{{\bfseries{{{foam_name} data from tension, compression, shear experiments.}}}}}} "
+        rf"Recorded Piola stress $P$ at equally spaced axial stretch $\lambda$ or shear strain $\gamma$ "
+        rf"intervals for the {foam_name} foam."
+    )
+    lines.append(r"The first two columns represent uniaxial tension,")
+    lines.append(r"the middle two columns uniaxial compression, and")
+    lines.append(r"the last two columns simple shear.")
+    lines.append(r"Means and standard deviations are reported across $n=5$ samples.")
+    lines.append(r"\vspace*{0.1cm}")
+    lines.append(r"\small")
+    lines.append(r"\centering")
+    lines.append(rf"\label{{table:{foam_name}}}")
+    lines.append(r"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    lines.append(r"\begin{tabular}{|ccc||ccc||cc|}")
+    lines.append(r"\hline")
+    lines.append(r"  \multicolumn{3}{|c||}{\sffamily{\bfseries{uniaxial tension}}}")
+    lines.append(r"& \multicolumn{3}{c||} {\sffamily{\bfseries{uniaxial compression}}}")
+    lines.append(r"& \multicolumn{2}{c|}  {\sffamily{\bfseries{simple shear}}} \\")
+    lines.append(r"  \multicolumn{3}{|c||}{$n=5$}")
+    lines.append(r"& \multicolumn{3}{c||}{$n=5$}")
+    lines.append(r"& \multicolumn{2}{c|}{$n=5$} \\ \hline")
+    lines.append(r"$\lambda$ & $P_{11}$ & $\lambda_2$ & $\lambda$ & $P_{11}$ & $\lambda_2$ & $\gamma$ & $P_{12}$  \\")
+    lines.append(r"\,[-] & [kPa] & [-] & [-] & [kPa] & [-] & [-] & [kPa]  \\")
+    lines.append(r"\hline \hline")
+
+    for i in range(n_pts_table):
+        ten_str = format_with_phantoms(ten_stress[i], ten_std[i])
+        ten_trans_str = format_with_phantoms(ten_trans[i], ten_trans_std[i], decimal_places=3)
+        com_str = format_with_phantoms(com_stress[i], com_std[i])
+        com_trans_str = format_with_phantoms(com_trans[i], com_trans_std[i], decimal_places=3)
+        shr_str = format_with_phantoms(shr_stress[i], shr_std[i])
+        hline_after = (i == 0) or (i == 3) or (i == 4) or (i == 7) or (i == 8) or (i == 11)
+        lines.append(
+            f"{ten_stretch[i]:.3f} & {ten_str} & {ten_trans_str} & "
+            f"{com_stretch[i]:.3f} & {com_str} & {com_trans_str} & "
+            f"{shr_strain[i]:.3f} & {shr_str}"
+        )
+        if hline_after:
+            lines.append(r" \\ \hline")
+        else:
+            lines.append(r" \\")
+
+    lines.append(r"\hline \hline")
+    lines.append(r"  \multicolumn{3}{|c||}{\sffamily{\bfseries{tensile stiffness}}}")
+    lines.append(r"& \multicolumn{3}{c||} {\sffamily{\bfseries{compressive stiffness}}}")
+    lines.append(r"& \multicolumn{2}{c|}  {\sffamily{\bfseries{shear stiffness}}} \\")
+    lines.append(rf"  \multicolumn{{3}}{{|c||}}{{$\textsf{{E}}_{{\rm{{ten}}}} = {E_ten:.2f} \pm {E_ten_std:.2f}$\,kPa}}")
+    lines.append(rf"& \multicolumn{{3}}{{c||}} {{$\textsf{{E}}_{{\rm{{com}}}} = {E_com:.2f} \pm {E_com_std:.2f}$\,kPa}}")
+    lines.append(rf"& \multicolumn{{2}}{{c|}}  {{$\textsf{{G}}_{{\rm{{shr}}}} = {G_shr:.2f} \pm {G_shr_std:.2f}$\,kPa}} \\")
+    lines.append(r"\hline \hline")
+    lines.append(r"  \multicolumn{3}{|c||}{\sffamily{\bfseries{energy return}}}")
+    lines.append(r"& \multicolumn{3}{c||} {\sffamily{\bfseries{energy return}}}")
+    lines.append(r"& \multicolumn{2}{c|}  {\sffamily{\bfseries{energy return}}} \\")
+    lines.append(rf"  \multicolumn{{3}}{{|c||}}{{$\eta_{{\rm{{ten}}}}  = {energy_return_ten:.1f} \pm {energy_return_ten_std:.1f} \%$}}")
+    lines.append(rf"& \multicolumn{{3}}{{c||}} {{$\eta_{{\rm{{com}}}}  = {energy_return_com:.1f} \pm {energy_return_com_std:.1f}\%$}}")
+    lines.append(rf"& \multicolumn{{2}}{{c|}}  {{$\eta_{{\rm{{shr}}}}  = {energy_return_shr:.1f} \pm {energy_return_shr_std:.1f} \%$}} \\")
+    lines.append(r"\hline")
+    lines.append(r"\end{tabular}")
+    lines.append(rf"%% End {foam_name} table")
+    lines.append(r"\end{table*}")
+    return "\n".join(lines)
+
+
+def save_stress_tables(
+    n_materials,
+    stretch_ten_table,
+    stress_ten_table,
+    stress_ten_std_table,
+    transverse_stretch_ten_table,
+    transverse_stretch_ten_std_table,
+    stretch_com_table,
+    stress_com_table,
+    stress_com_std_table,
+    transverse_stretch_com_table,
+    transverse_stretch_com_std_table,
+    strain_shr_table,
+    stress_shr_table,
+    stress_shr_std_table,
+    stiffness_ten,
+    stiffness_ten_std,
+    stiffness_com,
+    stiffness_com_std,
+    stiffness_shear,
+    stiffness_shear_std,
+    hysteresis_ten_samples,
+    hysteresis_com_samples,
+    hysteresis_shear_samples,
+    output_dir="./Results/RawData",
+):
+    os.makedirs(output_dir, exist_ok=True)
+    for mat in range(n_materials):
+        foam_name = foam_types[mat]
+        tbl = build_stress_table_latex(
+            mat,
+            stretch_ten_table,
+            stress_ten_table,
+            stress_ten_std_table,
+            transverse_stretch_ten_table,
+            transverse_stretch_ten_std_table,
+            stretch_com_table,
+            stress_com_table,
+            stress_com_std_table,
+            transverse_stretch_com_table,
+            transverse_stretch_com_std_table,
+            strain_shr_table,
+            stress_shr_table,
+            stress_shr_std_table,
+            stiffness_ten,
+            stiffness_ten_std,
+            stiffness_com,
+            stiffness_com_std,
+            stiffness_shear,
+            stiffness_shear_std,
+            hysteresis_ten_samples,
+            hysteresis_com_samples,
+            hysteresis_shear_samples,
+        )
+        print(f"LaTeX table for Material {mat + 1} ({foam_name}):\n{tbl}\n\n")
+        table_path = os.path.join(output_dir, f"{foam_name}_stress_table.tex")
+        with open(table_path, "w") as f:
+            f.write(tbl)
+        print(f"Stress table saved to: {table_path}\n")
+
+
+def save_stress_excel(
+    stretch_ten,
+    stress_ten,
+    stress_ten_std,
+    stretch_com,
+    stress_com,
+    stress_com_std,
+    transverse_stretch_ten,
+    transverse_stretch_ten_std,
+    transverse_stretch_com,
+    transverse_stretch_com_std,
+    strain_shr,
+    stress_shr,
+    stress_shr_std,
+    excel_dir=None,
+    excel_filename="WornFoamData.xlsx",
+):
+    """Write combined tension/compression/shear columns to Excel (MATLAB-style layout)."""
+    if excel_dir is None:
+        excel_dir = out_dir
+
+    stretch_ut = np.vstack([np.flipud(stretch_com), stretch_ten[1:, :]])
+    stress_ut = np.vstack([np.flipud(stress_com), stress_ten[1:, :]])
+    stress_ut_std = np.vstack([np.flipud(stress_com_std), stress_ten_std[1:, :]])
+    transverse_stretch_ut = np.vstack([np.flipud(transverse_stretch_com), transverse_stretch_ten[1:, :]])
+    transverse_stretch_ut_std = np.vstack(
+        [np.flipud(transverse_stretch_com_std), transverse_stretch_ten_std[1:, :]]
+    )
+
+    strain_ss = np.vstack([-np.flipud(strain_shr), strain_shr[1:, :]])
+    stress_ss = np.vstack([-np.flipud(stress_shr), stress_shr[1:, :]])
+    stress_ss_std = np.vstack([np.flipud(stress_shr_std), stress_shr_std[1:, :]])
+
+    data_cols = []
+    headings = []
+    for i, foam in enumerate(foam_types):
+        data_cols.append(stretch_ut[:, i])
+        headings.append(f"{foam}-comten-ax-stretch")
+        data_cols.append(transverse_stretch_ut[:, i])
+        headings.append(f"{foam}-comten-trans-stretch")
+        data_cols.append(transverse_stretch_ut_std[:, i])
+        headings.append(f"{foam}-comten-trans-stretch-stddev")
+        data_cols.append(stress_ut[:, i])
+        headings.append(f"{foam}-comten-stress")
+        data_cols.append(stress_ut_std[:, i])
+        headings.append(f"{foam}-comten-stddev")
+        data_cols.append(strain_ss[:, i])
+        headings.append(f"{foam}-shr-strain")
+        data_cols.append(stress_ss[:, i])
+        headings.append(f"{foam}-shr-stress")
+        data_cols.append(stress_ss_std[:, i])
+        headings.append(f"{foam}-shr-stddev")
+
+    df_out = pd.DataFrame(np.column_stack(data_cols), columns=headings)
+    os.makedirs(excel_dir, exist_ok=True)
+    out_path = os.path.join(excel_dir, excel_filename)
+    df_out.to_excel(out_path, index=False)
+    print(f"Wrote output excel to: {out_path}")
+
+
 # ---------- Main processing ----------
 def main():
 
@@ -1062,7 +1843,6 @@ def main():
 
     
 
-    ## Save all the data to a file
     # --- Perform statistical tests ---
     ## Perform FDA ANOVA on all the data for each mode
     regions = foam_types[3:]
@@ -1077,7 +1857,7 @@ def main():
         data_reshape = all_data_stress[mode, :, :, :, :].reshape(-1, 5, n_pts_plt)
         data_list = [data_reshape[i, :, :] for i in range(data_reshape.shape[0])]
         # Perform FDA ANOVA
-        v_n, p_val = oneway_anova_np(*data_list)
+        _, p_val = oneway_anova_np(*data_list)
         anova_p_values[0, mode] = p_val
         print(f"\tp value for {modes[mode]}: {p_val}")
     ## Perform pairwise FDA ANOVA for each mode and region
@@ -1086,7 +1866,7 @@ def main():
         for region in range(3):
             data_reshape = all_data_stress[mode, region, :, :, :].reshape(-1, 5, n_pts_plt)
             # Perform FDA ANOVA
-            v_n, p_val = oneway_anova_np(data_reshape[0, :, :], data_reshape[1, :, :])
+            _, p_val = oneway_anova_np(data_reshape[0, :, :], data_reshape[1, :, :])
             anova_p_values[1 + region, mode] = p_val
             print(f"\tp value for {modes[mode]} and {regions[region]}: {p_val}")
 
@@ -1095,7 +1875,7 @@ def main():
     for mode in range(3):# tension, compression, shear
         data_reshape = all_data_stress[mode, :, :, :, :].reshape(3, -1, n_pts_plt)
         # Perform 3 way FDA ANOVA
-        v_n, p_val = oneway_anova_np(data_reshape[0, :, :], data_reshape[1, :, :], data_reshape[2, :, :])
+        _, p_val = oneway_anova_np(data_reshape[0, :, :], data_reshape[1, :, :], data_reshape[2, :, :])
         anova_p_values[4, mode] = p_val
         print(f"\tp value for {modes[mode]}: {p_val}")
 
@@ -1104,7 +1884,7 @@ def main():
     for mode in range(3):# tension, compression, shear
         data_reshape = all_data_stress[mode, :, :, :, :].reshape(3, -1, n_pts_plt)
         for pair_idx, (region1, region2) in enumerate(region_pairs):
-            v_n, p_val = oneway_anova_np(data_reshape[region1, :, :], data_reshape[region2, :, :])
+            _, p_val = oneway_anova_np(data_reshape[region1, :, :], data_reshape[region2, :, :])
             anova_p_values[5 + pair_idx, mode] = p_val
             print(f"\tp value for {modes[mode]} comparing {regions[region1]} and {regions[region2]}: {p_val}")
 
@@ -1151,192 +1931,56 @@ def main():
             print(f"\tFor region {regions[region]} and mode {modes[mode]}:")
             print(f"\t\tCI: {ci_min} kPa - {ci_max} kPa")
     
-    ## Create figure that plots the difference between new and worn shoes for each mode and region with 
-    ## the confidence intervals computed above
-    ## Difference CI figure
-    fig, axes = plt.subplots(3, 3, figsize=(14, 12))
-    x_data_by_mode = [stretch_ten, stretch_com, strain_shr]
-    y_labels = ["Stress difference [kPa]", "Stress difference [kPa]", "Shear stress difference [kPa]"]
-    x_labels = ["Stretch [-]", "Stretch [-]", "Shear strain [-]"]
-    for mode in range(3):
-        x_all = x_data_by_mode[mode]
-        for region in range(3):
-            ax = axes[mode, region]
-            stress_data_new = all_data_stress[mode, region, 0, :, :]
-            stress_data_worn = all_data_stress[mode, region, 1, :, :]
-            mean_new = np.mean(stress_data_new, axis=0)
-            mean_worn = np.mean(stress_data_worn, axis=0)
-            mean_diff = mean_new - mean_worn
-            ci_min = ci_min_all[mode, region]
-            ci_max = ci_max_all[mode, region]
-            x = x_all[:, region]
-            ax.plot(x, mean_diff, label="Difference")
-            ax.fill_between(x, mean_diff + ci_min, mean_diff + ci_max, alpha=0.2)
-            ax.set_title(f"{modes[mode].capitalize()} - {regions[region]}", fontsize=FONT_SIZE)
-            ax.grid(True)
-            if region == 0:
-                ax.set_ylabel(y_labels[mode], fontsize=FONT_SIZE)
-            if mode == 2:
-                ax.set_xlabel(x_labels[mode], fontsize=FONT_SIZE)
-            if mode == 0 and region == 2:
-                ax.legend(fontsize=FONT_SIZE)
-    fig.suptitle("New - Worn Mean Stress Difference with 95% CI", fontsize=FONT_SIZE, fontweight="bold")
-    plt.tight_layout()
     ci_output_dir = "./Results/RawData"
-    os.makedirs(ci_output_dir, exist_ok=True)
-    plt.savefig(os.path.join(ci_output_dir, "DifferenceCI.pdf"), format="pdf", bbox_inches="tight")
-    plt.close(fig)
-
-
-    ## ANOVA table
-    test_names = np.array(["6 way", "New vs Worn (toe)", "New vs Worn (heel)", "New vs Worn (mid)", "Toe vs Mid vs Heel", "Toe vs Heel", "Toe vs Mid", "Mid vs Heel"])[:, np.newaxis]
-    headers = [
-        r"\makecell{Test Name}",
-        r"\makecell{Toe \\ Worn}",
-        r"\makecell{Toe \\ New}",
-        r"\makecell{Heel \\ Worn}",
-        r"\makecell{Heel \\ New}",
-        r"\makecell{Mid \\ Worn}",
-        r"\makecell{Mid \\ New}",
-        r"\makecell{$p$ Value \\ Ten}",
-        r"\makecell{$p$ Value \\ Com}",
-        r"\makecell{$p$ Value \\ Shear}",
-    ]
-    group_data = np.array([[1, 2, 3, 4, 5, 6], [1, 2, 0, 0, 0, 0], [0, 0, 1, 2, 0, 0], [0, 0, 0, 0, 1, 2], [1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 0, 0], [1, 1, 0, 0, 2, 2], [0, 0, 1, 1, 2, 2]])
-    group_data_formatted = np.where(group_data == 0, "", group_data.astype(object))
-    anova_p_values_formatted = np.vectorize(fmt_p_value)(anova_p_values)
-    ## Assemble into single table (only p-value columns use fmt_p_value highlighting)
-    data = np.concatenate([test_names, group_data_formatted, anova_p_values_formatted], axis=1)
-
-    # Create latex table using tabulate
-    anova_table_colspec = r"|l||c|c|c|c|c|c||l|l|l|"
-    table = tabulate(data, headers=headers, tablefmt="latex_raw")
-    table = table.replace(
-        table.split("\n", 1)[0],
-        rf"\begin{{tabular}}{{{anova_table_colspec}}}",
-        1,
+    # Create plots and tables from statistical tests
+    plot_difference_ci(
+        all_data_stress,
+        ci_min_all,
+        ci_max_all,
+        stretch_ten,
+        stretch_com,
+        strain_shr,
+        regions,
+        modes,
+        output_dir=ci_output_dir,
     )
-    print(table)
-    anova_table_path = os.path.join(ci_output_dir, "anova_table.tex")
-    with open(anova_table_path, "w") as f:
-        f.write(table)
-    print(f"ANOVA table saved to: {anova_table_path}")
+    save_anova_table(anova_p_values, ci_output_dir)
+    save_confidence_interval_table(ci_min_all, ci_max_all, regions, ci_output_dir)
 
-    ## Confidence interval table (rows = regions, cols = lower/upper per mode)
-    ci_headers = [
-        r"\makecell{Region}",
-        r"\makecell{Tension \\ Lower}",
-        r"\makecell{Tension \\ Upper}",
-        r"\makecell{Compression \\ Lower}",
-        r"\makecell{Compression \\ Upper}",
-        r"\makecell{Shear \\ Lower}",
-        r"\makecell{Shear \\ Upper}",
-    ]
-    ci_rows = []
-    for region in range(3):
-        row = [regions[region].capitalize()]
-        for mode in range(3):
-            row.append(fmt_ci_value(ci_min_all[mode, region]))
-            row.append(fmt_ci_value(ci_max_all[mode, region]))
-        ci_rows.append(row)
-
-    ci_table_colspec = r"|l||c|c||c|c||c|c|"
-    ci_table = tabulate(ci_rows, headers=ci_headers, tablefmt="latex_raw")
-    ci_table = ci_table.replace(
-        ci_table.split("\n", 1)[0],
-        rf"\begin{{tabular}}{{{ci_table_colspec}}}",
-        1,
-    )
-    print("\nConfidence interval table:")
-    print(ci_table)
-    ci_table_path = os.path.join(ci_output_dir, "confidence_interval_table.tex")
-    with open(ci_table_path, "w") as f:
-        f.write(ci_table)
-    print(f"Confidence interval table saved to: {ci_table_path}")
-
-    # assert False
-
-    
-    print("\n--- Hysteresis Values ---")
-    # Prepare means and stds (in percent)
-    ten_means = hysteresis_ten * 100.0
-    com_means = hysteresis_com * 100.0
-    shr_means = hysteresis_shear * 100.0
-    ten_stds = np.array([np.std(np.array(hysteresis_ten_samples[i]), ddof=0) for i in range(n_materials)]) * 100.0
-    com_stds = np.array([np.std(np.array(hysteresis_com_samples[i]), ddof=0) for i in range(n_materials)]) * 100.0
-    shr_stds = np.array([np.std(np.array(hysteresis_shear_samples[i]), ddof=0) for i in range(n_materials)]) * 100.0
-
-    # Build LaTeX table: rows = materials, columns = modes
-    lines = []
-    lines.append(r'\begin{tabular}{lccc}')
-    lines.append(r'\hline')
-    lines.append(r'Material & Tension & Compression & Shear \\')
-    lines.append(r'\hline')
-    for foam_idx, foam in enumerate(foam_types):
-        ten_mean = ten_means[foam_idx]
-        com_mean = com_means[foam_idx]
-        shr_mean = shr_means[foam_idx]
-        ten_std = ten_stds[foam_idx]
-        com_std = com_stds[foam_idx]
-        shr_std = shr_stds[foam_idx]
-        lines.append(
-            f"{foam} & "
-            f"{ten_mean:.1f} $\\pm$ {ten_std:.1f} & "
-            f"{com_mean:.1f} $\\pm$ {com_std:.1f} & "
-            f"{shr_mean:.1f} $\\pm$ {shr_std:.1f} \\\\"
-        )
-    lines.append(r'\hline')
-    lines.append(r'\end{tabular}')
-    hysteresis_table = "\n".join(lines)
-    print(hysteresis_table)
-    
-    # Save hysteresis table to file
     output_dir = "./Results/RawData"
-    os.makedirs(output_dir, exist_ok=True)
-    hysteresis_table_path = os.path.join(output_dir, "hysteresis_table.tex")
-    with open(hysteresis_table_path, 'w') as f:
-        f.write(hysteresis_table)
-    print(f"\nHysteresis table saved to: {hysteresis_table_path}\n")
 
-    # --- Output Stiffness Table ---
-    print("\n--- Stiffness Values ---")
-    # Build LaTeX table: rows = materials, columns = modes
-    lines_stiff = []
-    lines_stiff.append(r'\begin{tabular}{lccc}')
-    lines_stiff.append(r'\hline')
-    lines_stiff.append(r'Material & Tension & Compression & Shear \\')
-    lines_stiff.append(r'\hline')
-    for foam_idx, foam in enumerate(foam_types):
-        ten_mean = stiffness_ten[foam_idx]
-        com_mean = stiffness_com[foam_idx]
-        shr_mean = stiffness_shear[foam_idx]
-        ten_std = stiffness_ten_std[foam_idx]
-        com_std = stiffness_com_std[foam_idx]
-        shr_std = stiffness_shear_std[foam_idx]
-        lines_stiff.append(
-            f"{foam} & "
-            f"{ten_mean:.1f} $\\pm$ {ten_std:.1f} & "
-            f"{com_mean:.1f} $\\pm$ {com_std:.1f} & "
-            f"{shr_mean:.1f} $\\pm$ {shr_std:.1f} \\\\"
-        )
-    lines_stiff.append(r'\hline')
-    lines_stiff.append(r'\end{tabular}')
-    stiffness_table = "\n".join(lines_stiff)
-    print(stiffness_table)
-    
-    # Save stiffness table to file
-    stiffness_table_path = os.path.join(output_dir, "stiffness_table.tex")
-    with open(stiffness_table_path, 'w') as f:
-        f.write(stiffness_table)
-    print(f"\nStiffness table saved to: {stiffness_table_path}\n")
+    ## Save hysteresis and stiffness tables
+    save_hysteresis_table(
+        hysteresis_ten,
+        hysteresis_com,
+        hysteresis_shear,
+        hysteresis_ten_samples,
+        hysteresis_com_samples,
+        hysteresis_shear_samples,
+        n_materials,
+        output_dir,
+    )
+    save_stiffness_table(
+        stiffness_ten,
+        stiffness_com,
+        stiffness_shear,
+        stiffness_ten_std,
+        stiffness_com_std,
+        stiffness_shear_std,
+        output_dir,
+    )
 
-    ## Interpolate to table
+    ## Interpolate stress data to fewer points for table
     stretch_ten_table = np.linspace(np.min(stretch_ten), np.max(stretch_ten), n_pts_table)
     stress_ten_table = np.stack([np.interp(stretch_ten_table, stretch_ten[:, foam_idx], stress_ten[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     stress_ten_std_table = np.stack([np.interp(stretch_ten_table, stretch_ten[:, foam_idx], stress_ten_std[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    transverse_stretch_ten_table = np.stack([np.interp(stretch_ten_table, stretch_ten[:, foam_idx], transverse_stretch_ten[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    transverse_stretch_ten_std_table = np.stack([np.interp(stretch_ten_table, stretch_ten[:, foam_idx], transverse_stretch_ten_std[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     stretch_com_table = np.linspace(np.min(stretch_com), np.max(stretch_com), n_pts_table)
     stress_com_table = np.stack([np.interp(stretch_com_table, stretch_com[::-1, foam_idx], stress_com[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     stress_com_std_table = np.stack([np.interp(stretch_com_table, stretch_com[::-1, foam_idx], stress_com_std[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    transverse_stretch_com_table = np.stack([np.interp(stretch_com_table, stretch_com[::-1, foam_idx], transverse_stretch_com[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
+    transverse_stretch_com_std_table = np.stack([np.interp(stretch_com_table, stretch_com[::-1, foam_idx], transverse_stretch_com_std[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     strain_shr_table = np.linspace(np.min(strain_shr), np.max(strain_shr), n_pts_table)
     stress_shr_table = np.stack([np.interp(strain_shr_table, strain_shr[:, foam_idx], stress_shr[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
     stress_shr_std_table = np.stack([np.interp(strain_shr_table, strain_shr[:, foam_idx], stress_shr_std[:, foam_idx]) for foam_idx in range(n_materials)], axis=1)
@@ -1345,141 +1989,32 @@ def main():
         stress_conf_com_table = np.stack([np.interp(stretch_conf_com_table, stretch_conf_com[::-1, foam_idx], stress_conf_com[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
         stress_conf_com_std_table = np.stack([np.interp(stretch_conf_com_table, stretch_conf_com[::-1, foam_idx], stress_conf_com_std[::-1, foam_idx]) for foam_idx in range(n_materials)], axis=1)
 
-    print(stretch_ten_table.shape)
-    # ---------- Create all plots at the end ----------
-    # Create output directory
-    output_dir = "./Results/RawData"
+    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Tension plot
-    plt.figure(figsize=(7, 5))
-    for foam_idx in range(n_materials):
-        plt.plot(stretch_ten[:, foam_idx], stress_ten[:, foam_idx], colors[foam_idx], label=f"{foam_types_title[foam_idx]}")
-        plt.plot(stretch_ten_table, stress_ten_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
-        plt.fill_between(stretch_ten[:, foam_idx],
-                         stress_ten[:, foam_idx] - stress_ten_std[:, foam_idx],
-                         stress_ten[:, foam_idx] + stress_ten_std[:, foam_idx],
-                         color=colors[foam_idx], alpha=0.25)
-    plt.xlim([1.0, 1.3])
-    plt.xlabel("Stretch [-]", fontsize=FONT_SIZE)
-    plt.ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-    plt.title("Tension", fontsize=FONT_SIZE)
-    plt.tick_params(labelsize=FONT_SIZE)
-    plt.legend(fontsize=FONT_SIZE)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "Tension.pdf"), format='pdf', bbox_inches='tight')
-    # plt.show()
 
-    # Compression plot
-    fig, ax = plt.subplots(figsize=(7, 5))
-    for foam_idx in range(n_materials):
-        ax.plot(stretch_com[:, foam_idx], stress_com[:, foam_idx], colors[foam_idx], label=f"{foam_types_title[foam_idx]}")
-        ax.plot(stretch_com_table, stress_com_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
-        ax.fill_between(stretch_com[:, foam_idx],
-                         stress_com[:, foam_idx] - stress_com_std[:, foam_idx],
-                         stress_com[:, foam_idx] + stress_com_std[:, foam_idx],
-                         color=colors[foam_idx], alpha=0.25)
-    # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
-    ax.invert_xaxis()
-    ax.invert_yaxis()
-    ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
-    ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-    ax.set_title("Compression", fontsize=FONT_SIZE)
-    ax.tick_params(labelsize=FONT_SIZE)
-    ax.legend(fontsize=FONT_SIZE)
-    ax.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "Compression.pdf"), format='pdf', bbox_inches='tight')
-    # plt.show()
-
-    # Compression Transverse plot
-    fig, ax = plt.subplots(figsize=(7, 5))
-    for foam_idx in range(n_materials):
-        ax.plot(stretch_com[:, foam_idx], transverse_stretch_com[:, foam_idx], colors[foam_idx], label=f"{foam_types_title[foam_idx]}")
-        ax.fill_between(stretch_com[:, foam_idx],
-                         transverse_stretch_com[:, foam_idx] - transverse_stretch_com_std[:, foam_idx],
-                         transverse_stretch_com[:, foam_idx] + transverse_stretch_com_std[:, foam_idx],
-                         color=colors[foam_idx], alpha=0.25)
-    # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
-    ax.invert_xaxis()
-    # ax.invert_yaxis()
-    ax.set_xlabel("Axial Stretch [-]", fontsize=FONT_SIZE)
-    ax.set_ylabel("Transverse Stretch [-]", fontsize=FONT_SIZE)
-    ax.set_title("Compression", fontsize=FONT_SIZE)
-    ax.tick_params(labelsize=FONT_SIZE)
-    ax.legend(fontsize=FONT_SIZE)
-    ax.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "CompressionTransverse.pdf"), format='pdf', bbox_inches='tight')
-    # plt.show()
-
-    # Tension Transverse plot
-    fig, ax = plt.subplots(figsize=(7, 5))
-    for foam_idx in range(n_materials):
-        ax.plot(stretch_ten[:, foam_idx], transverse_stretch_ten[:, foam_idx], colors[foam_idx], label=f"{foam_types_title[foam_idx]}")
-        ax.fill_between(stretch_ten[:, foam_idx],
-                         transverse_stretch_ten[:, foam_idx] - transverse_stretch_ten_std[:, foam_idx],
-                         transverse_stretch_ten[:, foam_idx] + transverse_stretch_ten_std[:, foam_idx],
-                         color=colors[foam_idx], alpha=0.25)
-    # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
-    # ax.invert_xaxis()
-    ax.invert_yaxis()
-    ax.set_xlabel("Axial Stretch [-]", fontsize=FONT_SIZE)
-    ax.set_ylabel("Transverse Stretch [-]", fontsize=FONT_SIZE)
-    ax.set_title("Tension", fontsize=FONT_SIZE)
-    ax.tick_params(labelsize=FONT_SIZE)
-    ax.legend(fontsize=FONT_SIZE)
-    ax.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "TensionTransverse.pdf"), format='pdf', bbox_inches='tight')
-    # plt.show()
-
+    # Create stress plots (axial, transverse, and shear)
+    show_error_bars = not worn_shoe
+    plot_stress(LoadingMode.TENSION, show_error_bars, stretch_ten, stress_ten, stress_ten_std, stretch_ten_table, stress_ten_table, n_materials, output_dir)
+    plot_stress(LoadingMode.COMPRESSION, show_error_bars, stretch_com, stress_com, stress_com_std, stretch_com_table, stress_com_table, n_materials, output_dir)
+    plot_transverse_stretch(
+        LoadingMode.COMPRESSION, show_error_bars, stretch_com, transverse_stretch_com, transverse_stretch_com_std, n_materials, output_dir
+    )
+    plot_transverse_stretch(
+        LoadingMode.TENSION, show_error_bars, stretch_ten, transverse_stretch_ten, transverse_stretch_ten_std, n_materials, output_dir
+    )
     if not worn_shoe:
-        ## Confined compression plot
-        fig, ax = plt.subplots(figsize=(7, 5))
-        for foam_idx in range(n_materials):
-            ax.plot(stretch_conf_com[:, foam_idx], stress_conf_com[:, foam_idx], colors[foam_idx], label=f"{foam_types_title[foam_idx]}")
-            ax.plot(stretch_conf_com_table, stress_conf_com_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
-            ax.fill_between(stretch_conf_com[:, foam_idx],
-                            stress_conf_com[:, foam_idx] - stress_conf_com_std[:, foam_idx],
-                            stress_conf_com[:, foam_idx] + stress_conf_com_std[:, foam_idx],
-                            color=colors[foam_idx], alpha=0.25)
-        # Flip both axes: x-axis (stretch decreases left to right), y-axis (negative stress up)
-        ax.invert_xaxis()
-        ax.invert_yaxis()
-        ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
-        ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-        ax.set_title("Confined Compression", fontsize=FONT_SIZE)
-        ax.tick_params(labelsize=FONT_SIZE)
-        ax.legend(fontsize=FONT_SIZE)
-        ax.grid(True)
-        plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, "ConfinedCompression.pdf"), format='pdf', bbox_inches='tight')
-        # plt.show()
-
-    # Shear plot
-    plt.figure(figsize=(7, 5))
-    for foam_idx in range(n_materials):
-        plt.plot(strain_shr[:, foam_idx], stress_shr[:, foam_idx], colors[foam_idx], label=f"{foam_types_title[foam_idx]}")
-        plt.plot(strain_shr_table, stress_shr_table[:, foam_idx], colors[foam_idx] + "o", markersize=4)
-        plt.fill_between(strain_shr[:, foam_idx],
-                         stress_shr[:, foam_idx] - stress_shr_std[:, foam_idx],
-                         stress_shr[:, foam_idx] + stress_shr_std[:, foam_idx],
-                         color=colors[foam_idx], alpha=0.25)
-    plt.xlabel("Shear Strain [-]", fontsize=FONT_SIZE)
-    plt.ylabel("Shear Stress [kPa]", fontsize=FONT_SIZE)
-    plt.title("Shear", fontsize=FONT_SIZE)
-    # Set x-axis ticks every 0.05 and format to 2 decimal places
-    ax_shear = plt.gca()
-    ax_shear.xaxis.set_major_locator(ticker.MultipleLocator(0.05))
-    ax_shear.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
-    plt.tick_params(labelsize=FONT_SIZE)
-    plt.legend(fontsize=FONT_SIZE)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "Shear.pdf"), format='pdf', bbox_inches='tight')
-    # plt.show()
+        plot_stress(
+            LoadingMode.CONFINED_COMPRESSION,
+            show_error_bars,
+            stretch_conf_com,
+            stress_conf_com,
+            stress_conf_com_std,
+            stretch_conf_com_table,
+            stress_conf_com_table,
+            n_materials,
+            output_dir,
+        )
+    plot_stress(LoadingMode.SHEAR, show_error_bars, strain_shr, stress_shr, stress_shr_std, strain_shr_table, stress_shr_table, n_materials, output_dir)
 
 
     ## Compute linearity of shear data
@@ -1491,369 +2026,61 @@ def main():
         print(f"R2 of shear data for {foam_types_title[foam_idx]}: {r2_shr[0]}")
 
 
-    # --- 5x4 Subplot Figures: Individual Samples (one per material) ---
-    # 5 rows: Sample 1, Sample 2, Sample 3, Sample 4, Sample 5
-    # 4 columns: Tension, Compression, Shear, Confined Compression
-    # Create a separate figure for each material
+    # Create individual sample plots (tension, compression, shear, confined compression)
     for foam_idx in range(n_materials):
-        fig, axes = plt.subplots(5, 4, figsize=(14, 16))
-        ## TODO change title to capital
-        fig.suptitle(f'{foam_types_title[foam_idx]} - Individual Samples', fontsize=FONT_SIZE, fontweight='bold')
-        
-        # Compute axis limits for each test type (to make all samples in a column have same scale)
-        # Tension limits
-        ten_x_min, ten_x_max, ten_y_min, ten_y_max = np.inf, -np.inf, np.inf, -np.inf
-        for sample_idx in range(len(individual_samples_tension[foam_idx])):
-            sample_data = individual_samples_tension[foam_idx][sample_idx]
-            ten_x_min = min(ten_x_min, np.nanmin(sample_data['stretch']))
-            ten_x_max = max(ten_x_max, np.nanmax(sample_data['stretch']))
-            ten_y_min = min(ten_y_min, np.nanmin(sample_data['stress']))
-            ten_y_max = max(ten_y_max, np.nanmax(sample_data['stress']))
-        
-        # Compression limits
-        com_x_min, com_x_max, com_y_min, com_y_max = np.inf, -np.inf, np.inf, -np.inf
-        for sample_idx in range(len(individual_samples_compression[foam_idx])):
-            sample_data = individual_samples_compression[foam_idx][sample_idx]
-            com_x_min = min(com_x_min, np.nanmin(sample_data['stretch']))
-            com_x_max = max(com_x_max, np.nanmax(sample_data['stretch']))
-            com_y_min = min(com_y_min, np.nanmin(sample_data['stress']))
-            com_y_max = max(com_y_max, np.nanmax(sample_data['stress']))
-
-        # Confined compression limits
-        if not worn_shoe:
-            conf_com_x_min, conf_com_x_max, conf_com_y_min, conf_com_y_max = np.inf, -np.inf, np.inf, -np.inf
-            for sample_idx in range(len(individual_samples_conf_compression[foam_idx])):
-                sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
-                conf_com_x_min = min(conf_com_x_min, np.nanmin(sample_data['stretch']))
-                conf_com_x_max = max(conf_com_x_max, np.nanmax(sample_data['stretch']))
-                conf_com_y_min = min(conf_com_y_min, np.nanmin(sample_data['stress']))
-                conf_com_y_max = max(conf_com_y_max, np.nanmax(sample_data['stress']))
-        
-        # Shear limits
-        shr_x_min, shr_x_max, shr_y_min, shr_y_max = np.inf, -np.inf, np.inf, -np.inf
-        for sample_idx in range(len(individual_samples_shear[foam_idx])):
-            sample_data = individual_samples_shear[foam_idx][sample_idx]
-            shr_x_min = min(shr_x_min, np.nanmin(sample_data['strain']))
-            shr_x_max = max(shr_x_max, np.nanmax(sample_data['strain']))
-            shr_y_min = min(shr_y_min, np.nanmin(sample_data['stress']))
-            shr_y_max = max(shr_y_max, np.nanmax(sample_data['stress']))
-        
-        # Column 0: Tension
-        for sample_idx in range(5):  # Rows 0-4 for samples 1-5
-            ax = axes[sample_idx, 0]
-            if sample_idx < len(individual_samples_tension[foam_idx]):
-                sample_data = individual_samples_tension[foam_idx][sample_idx]
-                ax.plot(sample_data['stretch'], sample_data['stress'], 
-                       colors[foam_idx], linewidth=1.5)
-            ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
-            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-            ax.set_title(f"Tension \n Sample {sample_idx + 1}", fontsize=FONT_SIZE)
-            ax.tick_params(labelsize=FONT_SIZE)
-            ax.grid(True, alpha=0.3)
-            # Set identical axis limits for all tension subplots
-            if ten_x_max > ten_x_min and ten_y_max > ten_y_min:
-                ax.set_xlim(1.0, 1.3)
-                ax.set_ylim(ten_y_min, ten_y_max)
-        
-        # Column 1: Compression
-        for sample_idx in range(5):  # Rows 0-4 for samples 1-5
-            ax = axes[sample_idx, 1]
-            if sample_idx < len(individual_samples_compression[foam_idx]):
-                sample_data = individual_samples_compression[foam_idx][sample_idx]
-                ax.plot(sample_data['stretch'], sample_data['stress'], 
-                       colors[foam_idx], linewidth=1.5)
-            # Flip both axes for compression
-
-            ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
-            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-            ax.set_title(f"Compression \n Sample {sample_idx + 1}", fontsize=FONT_SIZE)
-            ax.tick_params(labelsize=FONT_SIZE)
-            ax.grid(True, alpha=0.3)
-            # Set identical axis limits for all compression subplots
-            if com_x_max > com_x_min and com_y_max > com_y_min:
-                ax.set_xlim(com_x_min, com_x_max)
-                ax.set_ylim(com_y_min, com_y_max)
-            ax.invert_xaxis()
-            ax.invert_yaxis()
-        
-        # Column 2: Shear
-        for sample_idx in range(5):  # Rows 0-4 for samples 1-5
-            ax = axes[sample_idx, 2]
-            if sample_idx < len(individual_samples_shear[foam_idx]):
-                sample_data = individual_samples_shear[foam_idx][sample_idx]
-                # Plot both positive and negative values
-                ax.plot(sample_data['strain'], 
-                       sample_data['stress'], 
-                       colors[foam_idx], linewidth=1.5)
-            ax.set_xlabel("Shear Strain [-]", fontsize=FONT_SIZE)
-            ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-            ax.set_title(f"Shear \n Sample {sample_idx + 1}", fontsize=FONT_SIZE)
-            ax.tick_params(labelsize=FONT_SIZE)
-            ax.grid(True, alpha=0.3)
-            # Set identical axis limits for all shear subplots
-            if shr_x_max > shr_x_min and shr_y_max > shr_y_min:
-                ax.set_xlim(shr_x_min, shr_x_max)
-                ax.set_ylim(shr_y_min, shr_y_max)
-        
-        # Column 3: Confined Compression
-        if not worn_shoe: 
-            for sample_idx in range(5):  # Rows 0-4 for samples 1-5
-                ax = axes[sample_idx, 3]
-                if sample_idx < len(individual_samples_conf_compression[foam_idx]):
-                    sample_data = individual_samples_conf_compression[foam_idx][sample_idx]
-                    ax.plot(sample_data['stretch'], sample_data['stress'], 
-                        colors[foam_idx], linewidth=1.5)
-                ax.set_xlabel("Stretch [-]", fontsize=FONT_SIZE)
-                ax.set_ylabel("Stress [kPa]", fontsize=FONT_SIZE)
-                ax.set_title(f"Confined Compression\nSample {sample_idx + 1}", fontsize=FONT_SIZE)
-                ax.tick_params(labelsize=FONT_SIZE)
-                ax.grid(True, alpha=0.3)
-                # Set identical axis limits for all confined compression subplots
-                if conf_com_x_max > conf_com_x_min and conf_com_y_max > conf_com_y_min:
-                    ax.set_xlim(conf_com_x_min, conf_com_x_max)
-                    ax.set_ylim(conf_com_y_min, conf_com_y_max)
-                ax.invert_xaxis()
-                ax.invert_yaxis()
-        
-        plt.tight_layout()
-        # Save figure with material name
-        filename = f"{foam_types[foam_idx]}_individual_samples.pdf"
-        plt.savefig(os.path.join(output_dir, filename), format='pdf', bbox_inches='tight')
-        # plt.show()
-
-    stress_ten_kPa = stress_ten.copy()
-    stress_com_kPa = np.abs(stress_com)
-    stress_shr_kPa = stress_shr.copy()
-    std_ten_kPa = stress_ten_std.copy()
-    std_com_kPa = stress_com_std.copy()
-    std_shr_kPa = stress_shr_std.copy()
-
-    # Combine all data (order: tension, compression, shear)
-    stretch_all = np.hstack([stretch_ten, stretch_com, strain_shr])
-    stress_all = np.hstack([stress_ten_kPa, stress_com_kPa, stress_shr_kPa])
-    std_all = np.hstack([std_ten_kPa, std_com_kPa, std_shr_kPa])
-
-    nRows = stretch_all.shape[0]
-    nModes = 3
-    nMaterials = stress_ten.shape[1]
-    stretchSymbols = [r'$\lambda$', r'$\lambda$', r'$\gamma$']
-
-    materialTables = []
-
-    for mat in range(nMaterials):
-        foam_name = foam_types[mat]
-        # Get table data (13 points)
-        ten_stretch = stretch_ten_table
-        ten_stress = stress_ten_table[:, mat]
-        ten_std = stress_ten_std_table[:, mat]
-        # Reverse compression data so largest stretch (1.0) is at top
-        # Negate compression stress values to make them positive
-        com_stretch = stretch_com_table[::-1]
-        com_stress = -stress_com_table[::-1, mat]  # Negate to make positive
-        com_std = stress_com_std_table[::-1, mat]  # Keep std positive
-        shr_strain = strain_shr_table
-        shr_stress = stress_shr_table[:, mat]
-        shr_std = stress_shr_std_table[:, mat]
-        
-        # Get stiffness and energy return values
-        E_ten = stiffness_ten[mat]
-        E_ten_std = stiffness_ten_std[mat]
-        E_com = stiffness_com[mat]
-        E_com_std = stiffness_com_std[mat]
-        G_shr = stiffness_shear[mat]
-        G_shr_std = stiffness_shear_std[mat]
-        # Energy return = 1 - hysteresis (convert hysteresis from fraction to %, then compute return)
-        energy_return_ten = np.mean(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_ten_samples[mat]])) * 100.0
-        # For std: if hysteresis has std, energy return has same std (but opposite sign doesn't matter for std)
-        energy_return_ten_std = np.std(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_ten_samples[mat]]), ddof=0) * 100.0
-        energy_return_com = np.mean(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_com_samples[mat]])) * 100.0
-        energy_return_com_std = np.std(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_com_samples[mat]]), ddof=0) * 100.0
-        energy_return_shr = np.mean(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_shear_samples[mat]])) * 100.0
-        energy_return_shr_std = np.std(np.array([(2.0 - h) / (2.0 + h) for h in hysteresis_shear_samples[mat]]), ddof=0) * 100.0
-
-        lines = []
-        lines.append(r'\begin{table*}[h]')
-        lines.append(rf'\caption{{\sffamily{{\bfseries{{{foam_name} data from tension, compression, shear experiments.}}}}}} Recorded Piola stress $P$ at equally spaced axial stretch $\lambda$ or shear strain $\gamma$ intervals for the {foam_name} foam.')
-        lines.append(rf'The first two columns represent uniaxial tension,')
-        lines.append(rf'the middle two columns uniaxial compression, and')
-        lines.append(rf'the last two columns simple shear.')
-        lines.append(rf'Means and standard deviations are reported across $n=5$ samples.')
-        lines.append(r'\vspace*{0.1cm}')
-        lines.append(r'\small')
-        lines.append(r'\centering')
-        lines.append(rf'\label{{table:{foam_name}}}')
-        lines.append(r'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-        lines.append(r'\begin{tabular}{|cc||cc||cc|}')
-        lines.append(r'\hline')
-        lines.append(r'  \multicolumn{2}{|c||}{\sffamily{\bfseries{uniaxial tension}}}')
-        lines.append(r'& \multicolumn{2}{c||} {\sffamily{\bfseries{uniaxial compression}}}')
-        lines.append(r'& \multicolumn{2}{c|}  {\sffamily{\bfseries{simple shear}}} \\')
-        lines.append(r'  \multicolumn{2}{|c||}{$n=5$}')
-        lines.append(r'& \multicolumn{2}{c||}{$n=5$}')
-        lines.append(r'& \multicolumn{2}{c|}{$n=5$} \\ \hline')
-        lines.append(r'$\lambda$ & $P_{11}$ & $\lambda$ & $P_{11}$ & $\gamma$ & $P_{12}$  \\')
-        lines.append(r'\,[-] & [kPa]  & [-] & [kPa]  & [-] & [kPa]  \\')
-        lines.append(r'\hline \hline')
-
-        # Helper function to format numbers with phantoms
-        def format_with_phantoms(val, std, max_digits=3):
-            # Handle negative values properly
-            val_sign = -1 if val < 0 else 1
-            val_abs = abs(val)
-            # Round to 2 decimal places first to avoid floating point issues
-            val_rounded = np.round(val_abs, 2)
-            val_int = int(val_rounded)
-            val_frac_raw = val_rounded - val_int
-            val_frac = int(np.round(val_frac_raw * 100))
-            # Ensure fractional part is between 0 and 99
-            if val_frac < 0:
-                val_frac = 0
-            elif val_frac >= 100:
-                val_int += 1
-                val_frac = 0
-            
-            std_sign = -1 if std < 0 else 1
-            std_abs = abs(std)
-            # Round to 2 decimal places first
-            std_rounded = np.round(std_abs, 2)
-            std_int = int(std_rounded)
-            std_frac_raw = std_rounded - std_int
-            std_frac = int(np.round(std_frac_raw * 100))
-            # Ensure fractional part is between 0 and 99
-            if std_frac < 0:
-                std_frac = 0
-            elif std_frac >= 100:
-                std_int += 1
-                std_frac = 0
-            
-            val_digits = len(str(val_int)) if val_int != 0 else 1
-            std_digits = len(str(std_int)) if std_int != 0 else 1
-            
-            val_phantom = r'\phantom{0}' * max(0, max_digits - val_digits)
-            std_phantom = r'\phantom{0}' * max(0, max_digits - std_digits)
-            
-            # Format value with sign
-            if val_int == 0 and val_frac == 0:
-                val_str = r"\phantom{0}\phantom{0}0.00"
-            elif val_int == 0:
-                val_str = rf"\phantom{{0}}\phantom{{0}}0.{val_frac:02d}"
-            else:
-                sign_str = "-" if val_sign < 0 else ""
-                val_str = rf"{sign_str}{val_phantom}{val_int}.{val_frac:02d}"
-            
-            # Format std with sign
-            if std_int == 0 and std_frac == 0:
-                std_str = r"\phantom{0}\phantom{0}0.00"
-            elif std_int == 0:
-                std_str = rf"\phantom{{0}}\phantom{{0}}0.{std_frac:02d}"
-            else:
-                sign_str = "-" if std_sign < 0 else ""
-                std_str = rf"{sign_str}{std_phantom}{std_int}.{std_frac:02d}"
-            
-            return rf"{val_str}\hspace{{0.5em}}$\pm$ {std_str}"
-
-        # Data rows (13 rows)
-        for i in range(n_pts_table):
-            ten_str = format_with_phantoms(ten_stress[i], ten_std[i])
-            com_str = format_with_phantoms(com_stress[i], com_std[i])
-            shr_str = format_with_phantoms(shr_stress[i], shr_std[i])
-            
-            # Add \hline after certain rows (matching the example)
-            hline_after = (i == 0) or (i == 3) or (i == 4) or (i == 7) or (i == 8) or (i == 11)
-            
-            lines.append(
-                f"{ten_stretch[i]:.3f} & {ten_str} & "
-                f"{com_stretch[i]:.3f} & {com_str} & "
-                f"{shr_strain[i]:.3f} & {shr_str}"
-            )
-            if hline_after:
-                lines.append(r' \\ \hline')
-            else:
-                lines.append(r' \\')
-        
-        lines.append(r'\hline \hline')
-        # Stiffness section
-        lines.append(r'  \multicolumn{2}{|c||}{\sffamily{\bfseries{tensile stiffness}}}')
-        lines.append(r'& \multicolumn{2}{c||} {\sffamily{\bfseries{compressive stiffness}}}')
-        lines.append(r'& \multicolumn{2}{c|}  {\sffamily{\bfseries{shear stiffness}}} \\')
-        lines.append(
-            rf'  \multicolumn{{2}}{{|c||}}{{$\textsf{{E}}_{{\rm{{ten}}}} = {E_ten:.2f} \pm {E_ten_std:.2f}$\,kPa}}'
+        plot_individual_samples(
+            foam_idx,
+            individual_samples_tension,
+            individual_samples_compression,
+            individual_samples_shear,
+            individual_samples_conf_compression,
+            output_dir,
         )
-        lines.append(
-            rf'& \multicolumn{{2}}{{c||}} {{$\textsf{{E}}_{{\rm{{com}}}} = {E_com:.2f} \pm {E_com_std:.2f}$\,kPa}}'
-        )
-        lines.append(
-            rf'& \multicolumn{{2}}{{c|}}  {{$\textsf{{G}}_{{\rm{{shr}}}} = {G_shr:.2f} \pm {G_shr_std:.2f}$\,kPa}} \\'
-        )
-        lines.append(r'\hline \hline')
-        # Energy return section
-        lines.append(r'  \multicolumn{2}{|c||}{\sffamily{\bfseries{energy return}}}')
-        lines.append(r'& \multicolumn{2}{c||} {\sffamily{\bfseries{energy return}}}')
-        lines.append(r'& \multicolumn{2}{c|}  {\sffamily{\bfseries{energy return}}} \\')
-        lines.append(
-            rf'  \multicolumn{{2}}{{|c||}}{{$\eta_{{\rm{{ten}}}}  = {energy_return_ten:.1f} \pm {energy_return_ten_std:.1f} \%$}}'
-        )
-        lines.append(
-            rf'& \multicolumn{{2}}{{c||}} {{$\eta_{{\rm{{com}}}}  = {energy_return_com:.1f} \pm {energy_return_com_std:.1f}\%$}}'
-        )
-        lines.append(
-            rf'& \multicolumn{{2}}{{c|}}  {{$\eta_{{\rm{{shr}}}}  = {energy_return_shr:.1f} \pm {energy_return_shr_std:.1f} \%$}} \\'
-        )
-        lines.append(r'\hline')
-        lines.append(r'\end{tabular}')
-        lines.append(rf'%% End {foam_name} table')
-        lines.append(r'\end{table*}')
-        materialTables.append("\n".join(lines))
 
-    # Save material tables to files
-    output_dir = "./Results/RawData"
-    os.makedirs(output_dir, exist_ok=True)
-    for mat_idx, (foam_name, tbl) in enumerate(zip(foam_types, materialTables), start=1):
-        print(f"LaTeX table for Material {mat_idx} ({foam_name}):\n{tbl}\n\n")
-        table_path = os.path.join(output_dir, f"{foam_name}_material_table.tex")
-        with open(table_path, 'w') as f:
-            f.write(tbl)
-        print(f"Material table saved to: {table_path}\n")
+    # Create stress tables
+    save_stress_tables(
+        n_materials,
+        stretch_ten_table,
+        stress_ten_table,
+        stress_ten_std_table,
+        transverse_stretch_ten_table,
+        transverse_stretch_ten_std_table,
+        stretch_com_table,
+        stress_com_table,
+        stress_com_std_table,
+        transverse_stretch_com_table,
+        transverse_stretch_com_std_table,
+        strain_shr_table,
+        stress_shr_table,
+        stress_shr_std_table,
+        stiffness_ten,
+        stiffness_ten_std,
+        stiffness_com,
+        stiffness_com_std,
+        stiffness_shear,
+        stiffness_shear_std,
+        hysteresis_ten_samples,
+        hysteresis_com_samples,
+        hysteresis_shear_samples,
+        output_dir,
+    )
 
-    # ---------- Write to file (Excel) ----------
-    # Recreate MATLAB final blocks: stretch_ut, stress_ut, stress_ut_std etc.
-    stretch_ut = np.vstack([np.flipud(stretch_com), stretch_ten[1:, :]])
-    stress_ut = np.vstack([np.flipud(stress_com), stress_ten[1:, :]])
-    stress_ut_std = np.vstack([np.flipud(stress_com_std), stress_ten_std[1:, :]])
-    transverse_stretch_ut = np.vstack([np.flipud(transverse_stretch_com), transverse_stretch_ten[1:, :]])
-    transverse_stretch_ut_std = np.vstack([np.flipud(transverse_stretch_com_std), transverse_stretch_ten_std[1:, :]])
-
-    strain_ss = np.vstack([-np.flipud(strain_shr), strain_shr[1:, :]])
-    stress_ss = np.vstack([-np.flipud(stress_shr), stress_shr[1:, :]])
-    stress_ss_std = np.vstack([np.flipud(stress_shr_std), stress_shr_std[1:, :]])
-
-    data_cols = []
-    headings = []
-    for i, foam in enumerate(foam_types):
-        # comten-stretch, comten-stress, comten-stddev, shr-strain, shr-stress, shr-stddev
-        data_cols.append(stretch_ut[:, i])
-        headings.append(f"{foam}-comten-ax-stretch")
-        data_cols.append(transverse_stretch_ut[:, i])
-        headings.append(f"{foam}-comten-trans-stretch")
-        data_cols.append(transverse_stretch_ut_std[:, i])
-        headings.append(f"{foam}-comten-trans-stretch-stddev")
-        data_cols.append(stress_ut[:, i])
-        headings.append(f"{foam}-comten-stress")
-        data_cols.append(stress_ut_std[:, i])
-        headings.append(f"{foam}-comten-stddev")
-        data_cols.append(strain_ss[:, i])
-        headings.append(f"{foam}-shr-strain")
-        data_cols.append(stress_ss[:, i])
-        headings.append(f"{foam}-shr-stress")
-        data_cols.append(stress_ss_std[:, i])
-        headings.append(f"{foam}-shr-stddev")
-
-    # Stack columns into DataFrame
-    df_out = pd.DataFrame(np.column_stack(data_cols), columns=headings)
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "WornFoamData.xlsx")
-    df_out.to_excel(out_path, index=False)
-    print(f"Wrote output excel to: {out_path}")
+    save_stress_excel(
+        stretch_ten,
+        stress_ten,
+        stress_ten_std,
+        stretch_com,
+        stress_com,
+        stress_com_std,
+        transverse_stretch_ten,
+        transverse_stretch_ten_std,
+        transverse_stretch_com,
+        transverse_stretch_com_std,
+        strain_shr,
+        stress_shr,
+        stress_shr_std,
+        excel_filename="WornFoamData.xlsx" if worn_shoe else "FoamData.xlsx",
+    )
 
     #### Print strain energies for paper
     mean_tensile_stress = np.mean(stress_ten[:, 0])

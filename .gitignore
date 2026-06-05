@@ -6,3 +6,5 @@ GCANN/Results*
 GCANN/venv
 FOAM/elastic-cann/Results/*
 *.tri
+FOAM/lateral-strain/input/*
+FOAM/lateral-strain/output/*
