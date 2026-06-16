@@ -1,0 +1,2 @@
+[console_scripts]
+lateral-strain = lateral_strain.cli:main
