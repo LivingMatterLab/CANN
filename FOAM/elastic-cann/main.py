@@ -30,18 +30,18 @@ cwd = os.getcwd()
 
 
 #%% Init
-train = False
+train = True
 epochs = 10000
 batch_size = 64
 p = 0.5
 
 # Define lists to iterate over
 # model_types_all = ['model_si_mi', 'model_si', 'model_si_ps']
-model_types_all = ['model_si_mi', 'model_si_ps']
+# model_types_all = ['model_si_mi', 'model_si_ps']
+model_types_all = ['model_si']
 
-
-# lp_reg_values = [0.0, 1.0]
-lp_reg_values = [1.0]
+lp_reg_values = [0.0, 1.0]
+# lp_reg_values = [1.0]
 
 # Select loading modes and foam types of interest
 # #modelFit_mode_all = ['SS', 'C', 'T', 'TC', "TC_and_SS"]
