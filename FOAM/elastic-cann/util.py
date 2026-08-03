@@ -2,7 +2,7 @@
 # coding: utf-8
 
 """
-Utility functions for CANN4brain_main.py
+Utility functions for CANN4brain_main.py and preprocessing pipeline.
 """
 
 import numpy as np
@@ -11,7 +11,53 @@ import tensorflow.keras as keras
 import os
 from sklearn.metrics import r2_score
 from models import OuterLayer
+from zipfile import BadZipFile
+import pandas as pd
+import shutil
+import subprocess
+import colorsys
+import tabulate
 
+def resample_table(x_data, n_pts_table, *y_data_list, is_compression=False):
+    """
+    Build a common x-axis (via linspace over min/max of x_data) and
+    interpolate one or more y_data arrays onto it, per material column.
+
+    Parameters
+    ----------
+    x_data : array, shape (n_pts, n_materials)
+        Original x-values (stretch or strain), per material. Used both to build x_table
+        and as the interpolation x-coordinates.
+    n_pts_table : int
+        Number of points in the resampled table.
+    *y_data_list : array, shape (n_pts, n_materials)
+        One or more y-value arrays to interpolate onto x_table.
+    is_compression : bool, optional
+        If True, reverse x_data and each y_data along axis 0 before
+        interpolating (needed in compression when x_data is decreasing).
+
+    Returns
+    -------
+    x_table : np.ndarray, shape (n_pts_table,)
+        The common x-values.
+    *tables : np.ndarray, shape (n_pts_table, n_materials)
+        One interpolated array per input in y_data_list, in the same order.
+    """
+    x_table = np.linspace(np.min(x_data), np.max(x_data), n_pts_table)
+
+    if is_compression:
+        x_data = x_data[::-1]
+        y_data_list = [y[::-1] for y in y_data_list]
+    n_materials = y_data_list[0].shape[1]
+    tables = tuple(
+        np.stack(
+            [np.interp(x_table, x_data[:, foam_idx], y_data[:, foam_idx]) for foam_idx in range(n_materials)],
+            axis=1
+        )
+        for y_data in y_data_list
+    )
+
+    return (x_table, *tables)
 
 def count_nonzero_terms(Psi_model, p=0.5, threshold=1e-6):
     """
@@ -695,3 +741,249 @@ def modelArchitecture(Psi_model):
     model_combined = keras.models.Model(inputs=[Stretch_ut, Stretch_ss, Gamma_ss], outputs=[Stress_axial, Stress_trans, Psi_ut, Stress_shear, Psi_ss])
     return model_combined
 
+
+# ---------- Formatting helpers (used by preprocessing pipeline) ----------
+
+def fmt_fixed2(x):
+    return f"{x:.2f}"
+
+
+def fmt_p_value(p):
+    """Format ANOVA p-values for LaTeX tables (decimal notation)."""
+    if not np.isfinite(p):
+        return ""
+
+    def highlight(formatted):
+        if p < 0.001:
+            return rf"\cellcolor{{green!25}}{formatted}"
+        if p < 0.05:
+            return rf"\cellcolor{{yellow!25}}{formatted}"
+        if p < 0.10:
+            return rf"\cellcolor{{orange!25}}{formatted}"
+        return rf"\cellcolor{{red!25}}{formatted}"
+
+    if p == 0:
+        return highlight(r"$<10^{-5}$")
+    sig_figs = 1 if p < 0.0001 else 2
+    exp = int(np.floor(np.log10(abs(p))))
+    rounded = round(p / (10 ** exp), sig_figs - 1) * (10 ** exp)
+    if rounded >= 10:
+        rounded = round(rounded / 10, sig_figs - 1) * 10
+    if rounded == 0:
+        return highlight(r"$<10^{-5}$")
+    exp_rounded = int(np.floor(np.log10(abs(rounded))))
+    decimal_places = max(0, -exp_rounded + (sig_figs - 1))
+    return highlight(rf"${rounded:.{decimal_places}f}$")
+
+
+def fmt_ci_value(x):
+    """Format confidence interval bounds for LaTeX tables."""
+    if not np.isfinite(x):
+        return ""
+    if abs(x) >= 10:
+        return rf"${int(np.round(x))}$"
+    if x == 0:
+        return r"$0$"
+    return rf"${x:.2g}$"
+
+
+def fmt_ci_interval(lo, hi):
+    """Format a CI as $[lo, hi]$ for LaTeX tables."""
+    if not (np.isfinite(lo) and np.isfinite(hi)):
+        return ""
+    lo_s = fmt_ci_value(lo).strip("$")
+    hi_s = fmt_ci_value(hi).strip("$")
+    return rf"$[{lo_s},\,{hi_s}]$"
+
+
+def format_with_phantoms(val, std, max_digits=3, decimal_places=2):
+    """Format mean ± std for stress tables with LaTeX phantoms for alignment."""
+    scale = 10 ** decimal_places
+    zero_frac = "0" * decimal_places
+
+    val_sign = -1 if val < 0 else 1
+    val_abs = abs(val)
+    val_rounded = np.round(val_abs, decimal_places)
+    print(val)
+    print(val_rounded)
+    val_int = int(val_rounded)
+    val_frac_raw = val_rounded - val_int
+    val_frac = int(np.round(val_frac_raw * scale))
+    if val_frac < 0:
+        val_frac = 0
+    elif val_frac >= scale:
+        val_int += 1
+        val_frac = 0
+
+    std_sign = -1 if std < 0 else 1
+    std_abs = abs(std)
+    std_rounded = np.round(std_abs, decimal_places)
+    std_int = int(std_rounded)
+    std_frac_raw = std_rounded - std_int
+    std_frac = int(np.round(std_frac_raw * scale))
+    if std_frac < 0:
+        std_frac = 0
+    elif std_frac >= scale:
+        std_int += 1
+        std_frac = 0
+
+    val_digits = len(str(val_int)) if val_int != 0 else 1
+    std_digits = len(str(std_int)) if std_int != 0 else 1
+
+    val_phantom = r"\phantom{0}" * max(0, max_digits - val_digits)
+    max_digits_std = max(1, max_digits - 1)
+    std_phantom = r"\phantom{0}" * max(0, max_digits_std - std_digits)
+
+    sign_str = "-" if val_sign < 0 else ""
+    val_str = rf"{sign_str}{val_phantom}{val_int}.{val_frac:0{decimal_places}d}"
+
+    sign_str = "-" if std_sign < 0 else ""
+    std_str = rf"{sign_str}{std_phantom}{std_int}.{std_frac:0{decimal_places}d}"
+
+    return rf"{val_str}\hspace{{0.5em}}$\pm$ {std_str}"
+
+
+def format_ci_region_name(region_name):
+    """Strip worn- prefix and capitalize for confidence interval table rows."""
+    return region_name.removeprefix("worn-").capitalize()
+
+def write_sheet_with_corrupt_recovery(df, excel_path, sheet_name):
+    """
+    Write a DataFrame to an xlsx sheet.
+    If the existing workbook is corrupt, delete it and recreate it.
+    """
+    try:
+        if os.path.exists(excel_path):
+            with pd.ExcelWriter(excel_path, mode='a', if_sheet_exists='replace', engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+        else:
+            with pd.ExcelWriter(excel_path, mode='w', engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+    except (BadZipFile, EOFError, OSError, KeyError, ValueError) as exc:
+        if os.path.exists(excel_path):
+            os.remove(excel_path)
+        print(f"Corrupt workbook detected and removed ({type(exc).__name__}): {excel_path}")
+        with pd.ExcelWriter(excel_path, mode='w', engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+
+
+def save_figure(fig, output_dir, filename, bbox_inches="tight"):
+    """Save figure as PDF and PNG with the same basename."""
+    os.makedirs(output_dir, exist_ok=True)
+    stem, _ = os.path.splitext(filename)
+    for fmt in ("pdf", "png"):
+        fig.savefig(os.path.join(output_dir, f"{stem}.{fmt}"), format=fmt, bbox_inches=bbox_inches)
+
+
+# ---------- Table generation ----------
+
+def latex_tabular_from_tabulate(data, headers, colspec):
+    table = tabulate(data, headers=headers, tablefmt="latex_raw")
+    return table.replace(table.split("\n", 1)[0], rf"\begin{{tabular}}{{{colspec}}}", 1)
+
+
+def render_latex_table_to_png(table_stem, output_dir="./Results/RawData", dpi=200):
+    """
+    Compile a tabular-only .tex fragment to PDF and PNG (standalone + pdflatex).
+
+    Expects ``{table_stem}.tex`` in ``output_dir``. Writes ``{table_stem}.pdf``
+    and ``{table_stem}.png``.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    fragment_path = os.path.join(output_dir, f"{table_stem}.tex")
+    if not os.path.isfile(fragment_path):
+        print(f"Skipping table render; missing {fragment_path}")
+        return
+
+    render_stem = f"{table_stem}_render"
+    render_tex_path = os.path.join(output_dir, f"{render_stem}.tex")
+    render_doc = (
+        r"\documentclass[border=8pt]{standalone}"
+        "\n"
+        r"\usepackage[table]{xcolor}"
+        "\n"
+        r"\usepackage{makecell}"
+        "\n"
+        r"\usepackage{booktabs}"
+        "\n"
+        r"\renewcommand{\arraystretch}{1.25}"
+        "\n"
+        r"\begin{document}"
+        "\n"
+        rf"\input{{{table_stem}.tex}}"
+        "\n"
+        r"\end{document}"
+        "\n"
+    )
+    with open(render_tex_path, "w") as fh:
+        fh.write(render_doc)
+
+    pdflatex_cmd = shutil.which("pdflatex") or "/Library/TeX/texbin/pdflatex"
+
+    result = subprocess.run(
+        [pdflatex_cmd, "-interaction=nonstopmode", f"{render_stem}.tex"],
+        cwd=output_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    render_pdf_path = os.path.join(output_dir, f"{render_stem}.pdf")
+    if result.returncode != 0 or not os.path.isfile(render_pdf_path):
+        print(f"pdflatex failed for {table_stem} (exit {result.returncode})")
+        return
+
+    pdf_path = os.path.join(output_dir, f"{table_stem}.pdf")
+    shutil.copyfile(render_pdf_path, pdf_path)
+
+    pdftoppm_cmd = shutil.which("pdftoppm")
+    if pdftoppm_cmd is None:
+        print(f"pdftoppm not found; PDF only at {pdf_path}")
+        return
+
+    png_prefix = os.path.join(output_dir, table_stem)
+    ppm_result = subprocess.run(
+        [pdftoppm_cmd, "-png", "-r", str(dpi), render_pdf_path, png_prefix],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if ppm_result.returncode != 0:
+        print(f"pdftoppm failed for {table_stem} (exit {ppm_result.returncode})")
+        return
+
+    png_candidates = [
+        os.path.join(output_dir, f"{table_stem}-1.png"),
+        os.path.join(output_dir, f"{table_stem}-01.png"),
+        os.path.join(output_dir, f"{table_stem}.png"),
+    ]
+    png_path = os.path.join(output_dir, f"{table_stem}.png")
+    for candidate in png_candidates:
+        if os.path.isfile(candidate) and candidate != png_path:
+            shutil.move(candidate, png_path)
+            break
+
+    if os.path.isfile(png_path):
+        print(f"Table render saved to: {pdf_path} and {png_path}")
+    else:
+        print(f"Table PDF saved to: {pdf_path} (PNG conversion did not produce output)")
+
+def hsl_to_rgb(h_deg, s_pct, l_pct):
+    """Convert HSL (hue deg, sat %, light %) to an RGB tuple for matplotlib."""
+    return colorsys.hls_to_rgb(h_deg / 360.0, l_pct / 100.0, s_pct / 100.0)
+
+
+def bar_series_mean_err(samples_by_material, material_indices, error="std"):
+    """Mean and ±std / ±SEM for one quantity across selected materials."""
+    means = []
+    errs = []
+    for mat in material_indices:
+        vals = np.asarray(samples_by_material[mat], dtype=float)
+        vals = vals[~np.isnan(vals)]
+        means.append(float(np.mean(vals)))
+        if len(vals) <= 1:
+            errs.append(0.0)
+            continue
+        std = float(np.std(vals, ddof=0))
+        errs.append(std / np.sqrt(len(vals)) if error == "sem" else std)
+    return np.asarray(means), np.asarray(errs)
