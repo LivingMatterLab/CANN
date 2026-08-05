@@ -12,7 +12,7 @@ from skfda.representation.grid import FDataGrid
 
 max_strain_linear = 0.2
 
-def fit_initial_slope(x, y, max_x=max_strain_linear, n_pts=101):
+def fit_initial_slope(x, y, max_x, n_pts=101):
     """Computes stiffness via least-squares slope over [0, max_strain]."""
     x_data = np.linspace(0, max_x, n_pts)
     y_data = np.interp(x_data, x, y)
@@ -74,12 +74,46 @@ def _as_sample_lists(mode_samples, n_materials=6):
     return [np.asarray(mode_samples[i], dtype=float).ravel() for i in range(n_materials)]
 
 
+def pool_region_mode_samples(mode_samples_by_material, region_idx, n_materials=6):
+    """Pool new+worn samples for a given region (toe/mid/heel)."""
+    region_materials = [
+        [0, 3],  # toe
+        [1, 4],  # mid
+        [2, 5],  # heel
+    ]
+    mats = region_materials[region_idx]
+    pooled = np.concatenate(
+        [np.asarray(mode_samples_by_material[i], dtype=float).ravel() for i in mats]
+    )
+    return pooled[~np.isnan(pooled)]
+
+
+def _mode_pair_indices(n_modes):
+    """Pairwise mode indices: (0,1), (0,2), (1,2) for 3 modes; (0,1) for 2 modes."""
+    if n_modes >= 3:
+        return [(0, 1), (0, 2), (1, 2)]
+    if n_modes == 2:
+        return [(0, 1)]
+    return []
+
+
 def compute_scalar_p_values(mode_sample_lists, n_materials=6):
     """
-    Scalar Welch ANOVA p-values matching the stress ANOVA table layout.
+    Scalar Welch p-values for new-vs-worn, region, and mode comparisons.
 
     mode_sample_lists: sequence over modes; each entry is length-n_materials sample lists.
-    Returns array shaped (8, n_modes).
+
+    Returns
+    -------
+    new_vs_worn : (3, n_modes)
+        New vs worn within region; region order toe, mid, heel.
+    region_pairs : (3, n_modes)
+        Pairwise region comparisons (new+worn pooled); pair order
+        toe-mid, toe-heel, mid-heel.
+    mode_pairs : (3, n_mode_pairs)
+        Pairwise mode comparisons within region (new+worn pooled);
+        region order toe, mid, heel. Mode-pair order is (0,1), (0,2), (1,2)
+        when n_modes >= 3, or just (0,1) when n_modes == 2.
     """
     # Material indices: new-toe=0, new-mid=1, new-heel=2, worn-toe=3, worn-mid=4, worn-heel=5
     region_materials = [
@@ -87,39 +121,65 @@ def compute_scalar_p_values(mode_sample_lists, n_materials=6):
         [1, 4],  # mid
         [2, 5],  # heel
     ]
-    # Row labels: Toe vs Heel, Toe vs Mid, Mid vs Heel
-    region_pairs = [(0, 2), (0, 1), (1, 2)]
-    # 3-way table order: toe, heel, mid (matches group_data row 4)
-    three_way_region_order = [0, 2, 1]
-    # New vs worn rows: toe, heel, mid (matches group_data rows 1-3)
-    new_vs_worn_region_order = [0, 2, 1]
+    region_pairs = [(0, 1), (0, 2), (1, 2)]  # toe-mid, toe-heel, mid-heel
 
     n_modes = len(mode_sample_lists)
-    p_values = np.full((8, n_modes), np.nan)
+    mode_pair_idx = _mode_pair_indices(n_modes)
+    n_mode_pairs = len(mode_pair_idx)
+
+    new_vs_worn = np.full((3, n_modes), np.nan)
+    region_p = np.full((3, n_modes), np.nan)
+    mode_p = np.full((3, n_mode_pairs), np.nan)
+
+    # Per-mode: new vs worn and region pairwise
     for mode_idx, mode_samples in enumerate(mode_sample_lists):
         samples = _as_sample_lists(mode_samples, n_materials)
 
-        _, p_values[0, mode_idx] = scalar_oneway_anova(samples)
+        for region_idx, mats in enumerate(region_materials):
+            groups = [samples[i] for i in mats]
+            _, new_vs_worn[region_idx, mode_idx] = scalar_oneway_anova(groups)
 
-        for row_idx, region_idx in enumerate(new_vs_worn_region_order):
-            groups = [samples[i] for i in region_materials[region_idx]]
-            _, p_values[1 + row_idx, mode_idx] = scalar_oneway_anova(groups)
-
-        three_way_groups = [
-            np.concatenate([samples[i] for i in region_materials[region_idx]])
-            for region_idx in three_way_region_order
+        region_vals = [
+            np.concatenate([samples[i] for i in mats]) for mats in region_materials
         ]
-        three_way_groups = [g[~np.isnan(g)] for g in three_way_groups]
-        _, p_values[4, mode_idx] = welch_anova(*three_way_groups)
-
+        region_vals = [g[~np.isnan(g)] for g in region_vals]
         for pair_idx, (r1, r2) in enumerate(region_pairs):
-            g1 = np.concatenate([samples[i] for i in region_materials[r1]])
-            g2 = np.concatenate([samples[i] for i in region_materials[r2]])
-            g1 = g1[~np.isnan(g1)]
-            g2 = g2[~np.isnan(g2)]
-            _, p_values[5 + pair_idx, mode_idx] = welch_anova(g1, g2)
+            _, region_p[pair_idx, mode_idx] = welch_anova(region_vals[r1], region_vals[r2])
 
-    return p_values
+    # Across modes within each region (new+worn pooled)
+    for region_idx in range(3):
+        pooled = [
+            pool_region_mode_samples(mode_sample_lists[m], region_idx, n_materials)
+            for m in range(n_modes)
+        ]
+        for pair_idx, (m1, m2) in enumerate(mode_pair_idx):
+            _, mode_p[region_idx, pair_idx] = welch_anova(pooled[m1], pooled[m2])
+
+    return new_vs_worn, region_p, mode_p
+
+
+def compute_scalar_mode_cis(mode_sample_lists, n_materials=6, alpha=0.05):
+    """
+    Welch t CIs for mean(mode_a) - mean(mode_b) within each region (new+worn pooled).
+
+    Returns (ci_min, ci_max) each shaped (3, n_mode_pairs) with region order
+    toe, mid, heel and the same mode-pair order as compute_scalar_p_values.
+    """
+    n_modes = len(mode_sample_lists)
+    mode_pair_idx = _mode_pair_indices(n_modes)
+    n_mode_pairs = len(mode_pair_idx)
+    ci_min = np.full((3, n_mode_pairs), np.nan)
+    ci_max = np.full((3, n_mode_pairs), np.nan)
+    for region_idx in range(3):
+        pooled = [
+            pool_region_mode_samples(mode_sample_lists[m], region_idx, n_materials)
+            for m in range(n_modes)
+        ]
+        for pair_idx, (m1, m2) in enumerate(mode_pair_idx):
+            lo, hi = scalar_mean_diff_ttest_ci(pooled[m1], pooled[m2], alpha=alpha)
+            ci_min[region_idx, pair_idx] = lo
+            ci_max[region_idx, pair_idx] = hi
+    return ci_min, ci_max
 
 def scalar_mean_diff_ttest_ci(group_a, group_b, alpha=0.05):
     """
@@ -284,15 +344,14 @@ def oneway_anova_np(first, *rest, grid_points=None, n_reps=100000, return_dist=F
     )
 
 
-def pool_region_mode_samples(mode_samples_by_material, region_idx, n_materials=6):
-    """Pool new+worn samples for a given region (toe/mid/heel)."""
-    region_materials = [
-        [0, 3],  # toe
-        [1, 4],  # mid
-        [2, 5],  # heel
-    ]
-    mats = region_materials[region_idx]
-    pooled = np.concatenate(
-        [np.asarray(mode_samples_by_material[i], dtype=float).ravel() for i in mats]
-    )
-    return pooled[~np.isnan(pooled)]
+def compute_p_threshold(p_values, alpha=0.05):
+    """
+    Compute the p-value threshold for a given alpha.
+    """
+    n_tests = p_values.shape[0]
+    p_values_sorted = np.sort(p_values)
+    for i in range(n_tests):
+        threshold = alpha / (n_tests - i)
+        if p_values_sorted[i] > threshold:
+            return threshold
+    return alpha

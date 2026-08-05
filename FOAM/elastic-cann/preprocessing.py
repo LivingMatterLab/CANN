@@ -798,7 +798,8 @@ def main():
         n_pts_table=n_pts_table,
         n_pts_plt=n_pts_plt,
         FONT_SIZE=base_font_size,
-        out_dir=out_dir
+        out_dir=out_dir,
+        max_strain_linear=max_strain_linear,
     )
 
     results.save_plots_and_tables(out_dir_plots)

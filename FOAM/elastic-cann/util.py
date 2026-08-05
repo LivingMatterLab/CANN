@@ -748,19 +748,16 @@ def fmt_fixed2(x):
     return f"{x:.2f}"
 
 
-def fmt_p_value(p):
+def fmt_p_value(p, p_threshold):
     """Format ANOVA p-values for LaTeX tables (decimal notation)."""
     if not np.isfinite(p):
         return ""
 
     def highlight(formatted):
-        if p < 0.001:
+        # Only shade highly significant cells; leave all others unshaded.
+        if p < p_threshold:
             return rf"\cellcolor{{green!25}}{formatted}"
-        if p < 0.05:
-            return rf"\cellcolor{{yellow!25}}{formatted}"
-        if p < 0.10:
-            return rf"\cellcolor{{orange!25}}{formatted}"
-        return rf"\cellcolor{{red!25}}{formatted}"
+        return formatted
 
     if p == 0:
         return highlight(r"$<10^{-5}$")
@@ -804,8 +801,6 @@ def format_with_phantoms(val, std, max_digits=3, decimal_places=2):
     val_sign = -1 if val < 0 else 1
     val_abs = abs(val)
     val_rounded = np.round(val_abs, decimal_places)
-    print(val)
-    print(val_rounded)
     val_int = int(val_rounded)
     val_frac_raw = val_rounded - val_int
     val_frac = int(np.round(val_frac_raw * scale))
@@ -878,8 +873,15 @@ def save_figure(fig, output_dir, filename, bbox_inches="tight"):
 
 # ---------- Table generation ----------
 
+def table_output_dir(output_dir, table_stem):
+    """Return ``{output_dir}/{table_stem}/``, creating it if needed."""
+    path = os.path.join(output_dir, table_stem)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def latex_tabular_from_tabulate(data, headers, colspec):
-    table = tabulate(data, headers=headers, tablefmt="latex_raw")
+    table = tabulate.tabulate(data, headers=headers, tablefmt="latex_raw")
     return table.replace(table.split("\n", 1)[0], rf"\begin{{tabular}}{{{colspec}}}", 1)
 
 
@@ -887,17 +889,17 @@ def render_latex_table_to_png(table_stem, output_dir="./Results/RawData", dpi=20
     """
     Compile a tabular-only .tex fragment to PDF and PNG (standalone + pdflatex).
 
-    Expects ``{table_stem}.tex`` in ``output_dir``. Writes ``{table_stem}.pdf``
-    and ``{table_stem}.png``.
+    Expects ``{output_dir}/{table_stem}/{table_stem}.tex``. Writes PDF, PNG, and
+    pdflatex intermediates into that same folder.
     """
-    os.makedirs(output_dir, exist_ok=True)
-    fragment_path = os.path.join(output_dir, f"{table_stem}.tex")
+    table_dir = table_output_dir(output_dir, table_stem)
+    fragment_path = os.path.join(table_dir, f"{table_stem}.tex")
     if not os.path.isfile(fragment_path):
         print(f"Skipping table render; missing {fragment_path}")
         return
 
     render_stem = f"{table_stem}_render"
-    render_tex_path = os.path.join(output_dir, f"{render_stem}.tex")
+    render_tex_path = os.path.join(table_dir, f"{render_stem}.tex")
     render_doc = (
         r"\documentclass[border=8pt]{standalone}"
         "\n"
@@ -923,17 +925,17 @@ def render_latex_table_to_png(table_stem, output_dir="./Results/RawData", dpi=20
 
     result = subprocess.run(
         [pdflatex_cmd, "-interaction=nonstopmode", f"{render_stem}.tex"],
-        cwd=output_dir,
+        cwd=table_dir,
         capture_output=True,
         text=True,
         check=False,
     )
-    render_pdf_path = os.path.join(output_dir, f"{render_stem}.pdf")
+    render_pdf_path = os.path.join(table_dir, f"{render_stem}.pdf")
     if result.returncode != 0 or not os.path.isfile(render_pdf_path):
         print(f"pdflatex failed for {table_stem} (exit {result.returncode})")
         return
 
-    pdf_path = os.path.join(output_dir, f"{table_stem}.pdf")
+    pdf_path = os.path.join(table_dir, f"{table_stem}.pdf")
     shutil.copyfile(render_pdf_path, pdf_path)
 
     pdftoppm_cmd = shutil.which("pdftoppm")
@@ -941,7 +943,7 @@ def render_latex_table_to_png(table_stem, output_dir="./Results/RawData", dpi=20
         print(f"pdftoppm not found; PDF only at {pdf_path}")
         return
 
-    png_prefix = os.path.join(output_dir, table_stem)
+    png_prefix = os.path.join(table_dir, table_stem)
     ppm_result = subprocess.run(
         [pdftoppm_cmd, "-png", "-r", str(dpi), render_pdf_path, png_prefix],
         capture_output=True,
@@ -953,11 +955,11 @@ def render_latex_table_to_png(table_stem, output_dir="./Results/RawData", dpi=20
         return
 
     png_candidates = [
-        os.path.join(output_dir, f"{table_stem}-1.png"),
-        os.path.join(output_dir, f"{table_stem}-01.png"),
-        os.path.join(output_dir, f"{table_stem}.png"),
+        os.path.join(table_dir, f"{table_stem}-1.png"),
+        os.path.join(table_dir, f"{table_stem}-01.png"),
+        os.path.join(table_dir, f"{table_stem}.png"),
     ]
-    png_path = os.path.join(output_dir, f"{table_stem}.png")
+    png_path = os.path.join(table_dir, f"{table_stem}.png")
     for candidate in png_candidates:
         if os.path.isfile(candidate) and candidate != png_path:
             shutil.move(candidate, png_path)

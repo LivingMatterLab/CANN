@@ -8,7 +8,6 @@ from enum import StrEnum
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from scipy.stats import ttest_ind
 from tabulate import tabulate
 
 from util import *
@@ -45,7 +44,7 @@ _TRANSVERSE_LOADING_MODES = frozenset({LoadingMode.TENSION, LoadingMode.COMPRESS
 
 ### Define results class
 class PreprocessingResults: 
-    def __init__(self, foam_types, foam_types_title, colors, linestyles, worn_shoe, n_pts_table, n_pts_plt, FONT_SIZE, out_dir) -> None:
+    def __init__(self, foam_types, foam_types_title, colors, linestyles, worn_shoe, n_pts_table, n_pts_plt, FONT_SIZE, out_dir, max_strain_linear) -> None:
 
         # Initialize settings that affect plotting
         self.foam_types = foam_types
@@ -57,7 +56,7 @@ class PreprocessingResults:
         self.n_pts_plt = n_pts_plt
         self.FONT_SIZE = FONT_SIZE
         self.out_dir = out_dir
-
+        self.max_strain_linear = max_strain_linear
         # Load data from numpy save file
         self.load_from_file(os.path.join(out_dir, "all_data.npz"))
         
@@ -100,9 +99,21 @@ class PreprocessingResults:
         ]
 
         # Compute p values for comparison of scalars (stiffness, poisson ratio, energy return)
-        self.stiffness_p_val = compute_scalar_p_values(self.stiffness_mode_samples, self.n_materials)
-        self.poisson_p_val = compute_scalar_p_values(self.poisson_mode_samples, self.n_materials)
-        self.energy_p_val = compute_scalar_p_values(self.energy_return_mode_samples, self.n_materials)
+        (
+            self.stiffness_new_worn_p,
+            self.stiffness_region_p,
+            self.stiffness_mode_p,
+        ) = compute_scalar_p_values(self.stiffness_mode_samples, self.n_materials)
+        (
+            self.poisson_new_worn_p,
+            self.poisson_region_p,
+            self.poisson_mode_p,
+        ) = compute_scalar_p_values(self.poisson_mode_samples, self.n_materials)
+        (
+            self.energy_new_worn_p,
+            self.energy_region_p,
+            self.energy_mode_p,
+        ) = compute_scalar_p_values(self.energy_return_mode_samples, self.n_materials)
 
         # Compute confidence intervals for difference between scalar values in new and worn foam
         self.stiffness_ci_min, self.stiffness_ci_max = compute_scalar_new_worn_cis(
@@ -125,6 +136,21 @@ class PreprocessingResults:
         self.energy_region_ci_min, self.energy_region_ci_max = compute_scalar_region_cis(
             self.energy_return_mode_samples, self.n_materials
         )
+
+        # Compute confidence intervals for difference among modes within each region
+        self.stiffness_mode_ci_min, self.stiffness_mode_ci_max = compute_scalar_mode_cis(
+            self.stiffness_mode_samples, self.n_materials
+        )
+        self.poisson_mode_ci_min, self.poisson_mode_ci_max = compute_scalar_mode_cis(
+            self.poisson_mode_samples, self.n_materials
+        )
+        self.energy_mode_ci_min, self.energy_mode_ci_max = compute_scalar_mode_cis(
+            self.energy_return_mode_samples, self.n_materials
+        )
+
+        # Compute p value significance threshold based on number of positive tests
+        p_values_all = np.concatenate([self.stiffness_new_worn_p.flatten(), self.poisson_new_worn_p.flatten(), self.energy_new_worn_p.flatten(), self.stiffness_region_p.flatten(), self.poisson_region_p.flatten(), self.energy_region_p.flatten(), self.stiffness_mode_p.flatten(), self.poisson_mode_p.flatten(), self.energy_mode_p.flatten()])
+        self.p_threshold = compute_p_threshold(p_values_all, alpha=0.05)
 
         # Compute stress & trans stretch means / stds from per sample data
         all_means_stress = np.mean(self.all_data_stress, axis=3).reshape((3, 6, -1))
@@ -242,7 +268,7 @@ class PreprocessingResults:
         self.save_stress_excel(excel_filename="WornFoamData.xlsx" if self.worn_shoe else "FoamData.xlsx")
 
     
-    def compute_stiffness_samples(self, max_strain=max_strain_linear):
+    def compute_stiffness_samples(self):
         """Recompute per-sample stiffness from stored mean stress curves."""
         self.stiffness_ten_samples = []
         self.stiffness_com_samples = []
@@ -261,21 +287,21 @@ class PreprocessingResults:
                     fit_initial_slope(
                         strain_ten,
                         self.all_data_stress[0, region, new_worn, sample_idx, :],
-                        max_x=max_strain,
+                        max_x=self.max_strain_linear,
                     )
                 )
                 com.append(
                     fit_initial_slope(
                         strain_com,
                         self.all_data_stress[1, region, new_worn, sample_idx, :],
-                        max_x=max_strain,
+                        max_x=self.max_strain_linear,
                     )
                 )
                 shr.append(
                     fit_initial_slope(
                         strain_shear,
                         self.all_data_stress[2, region, new_worn, sample_idx, :],
-                        max_x=max_strain,
+                        max_x=self.max_strain_linear,
                     )
                 )
             self.stiffness_ten_samples.append(np.asarray(ten, dtype=float))
@@ -283,7 +309,7 @@ class PreprocessingResults:
             self.stiffness_shear_samples.append(np.asarray(shr, dtype=float))
 
 
-    def compute_poisson_samples(self, max_strain=max_strain_linear):
+    def compute_poisson_samples(self):
         """Recompute per-sample Poisson's ratio from stored transverse stretch curves."""
         self.poissons_ten_samples = []
         self.poissons_com_samples = []
@@ -299,14 +325,14 @@ class PreprocessingResults:
                     -fit_initial_slope(
                         strain_ten,
                         self.all_data_transverse[0, region, new_worn, sample_idx, :] - 1,
-                        max_x=max_strain,
+                        max_x=self.max_strain_linear,
                     )
                 )
                 com.append(
                     fit_initial_slope(
                         strain_com,
                         self.all_data_transverse[1, region, new_worn, sample_idx, :] - 1,
-                        max_x=max_strain,
+                        max_x=self.max_strain_linear,
                     )
                 )
             self.poissons_ten_samples.append(np.asarray(ten, dtype=float))
@@ -314,7 +340,7 @@ class PreprocessingResults:
     
     def save_scalar_summary_table(self, output_dir="./Results/RawData"):
         """
-        Combined scalar summary: 6-way and new-vs-worn p-values/CIs.
+        Combined scalar summary: new-vs-worn p-values/CIs.
 
         Columns: stiffness (ten/com/shr), energy return (ten/com/shr), Poisson (ten/com).
         Poisson has no shear mode; the last column is compression.
@@ -330,22 +356,20 @@ class PreprocessingResults:
             r"\makecell{Poisson ratio \\ Tension}",
             r"\makecell{Poisson ratio \\ Compression}",
         ]
-        # ANOVA rows: 0=6-way, 1=toe, 2=heel, 3=mid
-        # CI region order: 0=toe, 1=mid, 2=heel
+        # Region order for both p-values and CIs: 0=toe, 1=mid, 2=heel
         row_specs = [
-            ("6 way ANOVA $p$ value", "p", 0, None),
-            ("Worn vs new toe $p$ value", "p", 1, None),
-            ("Worn vs new toe CI", "ci", None, 0),
-            ("Worn vs new mid $p$ value", "p", 3, None),
-            ("Worn vs new mid CI", "ci", None, 1),
-            ("Worn vs new heel $p$ value", "p", 2, None),
-            ("Worn vs new heel CI", "ci", None, 2),
+            ("Worn vs new toe $p$ value", "p", 0),
+            ("Worn vs new toe CI", "ci", 0),
+            ("Worn vs new mid $p$ value", "p", 1),
+            ("Worn vs new mid CI", "ci", 1),
+            ("Worn vs new heel $p$ value", "p", 2),
+            ("Worn vs new heel CI", "ci", 2),
         ]
 
-        def p_cell(anova, mode_idx, row_idx):
-            if mode_idx >= anova.shape[1]:
+        def p_cell(p_arr, mode_idx, region_idx):
+            if mode_idx >= p_arr.shape[1]:
                 return ""
-            return fmt_p_value(anova[row_idx, mode_idx])
+            return fmt_p_value(p_arr[region_idx, mode_idx], self.p_threshold)
 
         def ci_cell(ci_min, ci_max, mode_idx, region_idx):
             if mode_idx >= ci_min.shape[0]:
@@ -353,17 +377,17 @@ class PreprocessingResults:
             return fmt_ci_interval(ci_min[mode_idx, region_idx], ci_max[mode_idx, region_idx])
 
         rows = []
-        for label, kind, anova_row, region_idx in row_specs:
+        for label, kind, region_idx in row_specs:
             if kind == "p":
                 cells = [
-                    p_cell(self.stiffness_p_val, 0, anova_row),
-                    p_cell(self.stiffness_p_val, 1, anova_row),
-                    p_cell(self.stiffness_p_val, 2, anova_row),
-                    p_cell(self.energy_p_val, 0, anova_row),
-                    p_cell(self.energy_p_val, 1, anova_row),
-                    p_cell(self.energy_p_val, 2, anova_row),
-                    p_cell(self.poisson_p_val, 0, anova_row),
-                    p_cell(self.poisson_p_val, 1, anova_row),
+                    p_cell(self.stiffness_new_worn_p, 0, region_idx),
+                    p_cell(self.stiffness_new_worn_p, 1, region_idx),
+                    p_cell(self.stiffness_new_worn_p, 2, region_idx),
+                    p_cell(self.energy_new_worn_p, 0, region_idx),
+                    p_cell(self.energy_new_worn_p, 1, region_idx),
+                    p_cell(self.energy_new_worn_p, 2, region_idx),
+                    p_cell(self.poisson_new_worn_p, 0, region_idx),
+                    p_cell(self.poisson_new_worn_p, 1, region_idx),
                 ]
             else:
                 cells = [
@@ -379,17 +403,18 @@ class PreprocessingResults:
             rows.append([label, *cells])
 
         table = latex_tabular_from_tabulate(rows, headers, r"|l||c|c|c||c|c|c||c|c|")
-        os.makedirs(output_dir, exist_ok=True)
-        table_path = os.path.join(output_dir, "scalar_summary_table.tex")
+        table_name = "scalar_new_worn_table"
+        table_dir = table_output_dir(output_dir, table_name)
+        table_path = os.path.join(table_dir, f"{table_name}.tex")
         with open(table_path, "w") as fh:
             fh.write(table)
         print(f"Scalar summary table saved to: {table_path}")
-        render_latex_table_to_png("scalar_summary_table", output_dir=output_dir)
+        render_latex_table_to_png(table_name, output_dir=output_dir)
 
 
     def save_scalar_region_summary_table(self, output_dir="./Results/RawData"):
         """
-        Region comparison scalar summary: pairwise p-values/CIs with new and worn pooled.
+        Region comparison scalar summary: pairwise region p-values/CIs with new and worn pooled.
 
         Columns match save_scalar_summary_table. CIs are mean(region_a) - mean(region_b).
         """
@@ -404,22 +429,20 @@ class PreprocessingResults:
             r"\makecell{Poisson ratio \\ Tension}",
             r"\makecell{Poisson ratio \\ Compression}",
         ]
-        # ANOVA rows: 4=3-way, 5=toe vs heel, 6=toe vs mid, 7=mid vs heel
-        # CI pair order: 0=toe-mid, 1=toe-heel, 2=mid-heel
+        # Pair order for both p-values and CIs: 0=toe-mid, 1=toe-heel, 2=mid-heel
         row_specs = [
-            ("3 way ANOVA $p$ value", "p", 4, None),
-            ("Toe vs mid $p$ value", "p", 6, None),
-            ("Toe vs mid CI", "ci", None, 0),
-            ("Toe vs heel $p$ value", "p", 5, None),
-            ("Toe vs heel CI", "ci", None, 1),
-            ("Mid vs heel $p$ value", "p", 7, None),
-            ("Mid vs heel CI", "ci", None, 2),
+            ("Toe vs mid $p$ value", "p", 0),
+            ("Toe vs mid CI", "ci", 0),
+            ("Toe vs heel $p$ value", "p", 1),
+            ("Toe vs heel CI", "ci", 1),
+            ("Mid vs heel $p$ value", "p", 2),
+            ("Mid vs heel CI", "ci", 2),
         ]
 
-        def p_cell(anova, mode_idx, row_idx):
-            if mode_idx >= anova.shape[1]:
+        def p_cell(p_arr, mode_idx, pair_idx):
+            if mode_idx >= p_arr.shape[1]:
                 return ""
-            return fmt_p_value(anova[row_idx, mode_idx])
+            return fmt_p_value(p_arr[pair_idx, mode_idx], self.p_threshold)
 
         def ci_cell(ci_min, ci_max, mode_idx, pair_idx):
             if mode_idx >= ci_min.shape[0]:
@@ -427,154 +450,128 @@ class PreprocessingResults:
             return fmt_ci_interval(ci_min[mode_idx, pair_idx], ci_max[mode_idx, pair_idx])
 
         rows = []
-        for label, kind, anova_row, pair_idx in row_specs:
+        for label, kind, pair_idx in row_specs:
             if kind == "p":
                 cells = [
-                    p_cell(self.stiffness_p_val, 0, anova_row),
-                    p_cell(self.stiffness_p_val, 1, anova_row),
-                    p_cell(self.stiffness_p_val, 2, anova_row),
-                    p_cell(self.energy_p_val, 0, anova_row),
-                    p_cell(self.energy_p_val, 1, anova_row),
-                    p_cell(self.energy_p_val, 2, anova_row),
-                    p_cell(self.poisson_p_val, 0, anova_row),
-                    p_cell(self.poisson_p_val, 1, anova_row),
+                    p_cell(self.stiffness_region_p, 0, pair_idx),
+                    p_cell(self.stiffness_region_p, 1, pair_idx),
+                    p_cell(self.stiffness_region_p, 2, pair_idx),
+                    p_cell(self.energy_region_p, 0, pair_idx),
+                    p_cell(self.energy_region_p, 1, pair_idx),
+                    p_cell(self.energy_region_p, 2, pair_idx),
+                    p_cell(self.poisson_region_p, 0, pair_idx),
+                    p_cell(self.poisson_region_p, 1, pair_idx),
                 ]
             else:
                 cells = [
-                    ci_cell(self.stiffness_ci_min, self.stiffness_ci_max, 0, pair_idx),
-                    ci_cell(self.stiffness_ci_min, self.stiffness_ci_max, 1, pair_idx),
-                    ci_cell(self.stiffness_ci_min, self.stiffness_ci_max, 2, pair_idx),
-                    ci_cell(self.energy_ci_min, self.energy_ci_max, 0, pair_idx),
-                    ci_cell(self.energy_ci_min, self.energy_ci_max, 1, pair_idx),
-                    ci_cell(self.energy_ci_min, self.energy_ci_max, 2, pair_idx),
-                    ci_cell(self.poisson_ci_min, self.poisson_ci_max, 0, pair_idx),
-                    ci_cell(self.poisson_ci_min, self.poisson_ci_max, 1, pair_idx),
+                    ci_cell(self.stiffness_region_ci_min, self.stiffness_region_ci_max, 0, pair_idx),
+                    ci_cell(self.stiffness_region_ci_min, self.stiffness_region_ci_max, 1, pair_idx),
+                    ci_cell(self.stiffness_region_ci_min, self.stiffness_region_ci_max, 2, pair_idx),
+                    ci_cell(self.energy_region_ci_min, self.energy_region_ci_max, 0, pair_idx),
+                    ci_cell(self.energy_region_ci_min, self.energy_region_ci_max, 1, pair_idx),
+                    ci_cell(self.energy_region_ci_min, self.energy_region_ci_max, 2, pair_idx),
+                    ci_cell(self.poisson_region_ci_min, self.poisson_region_ci_max, 0, pair_idx),
+                    ci_cell(self.poisson_region_ci_min, self.poisson_region_ci_max, 1, pair_idx),
                 ]
             rows.append([label, *cells])
 
         table = latex_tabular_from_tabulate(rows, headers, r"|l||c|c|c||c|c|c||c|c|")
-        os.makedirs(output_dir, exist_ok=True)
-        table_path = os.path.join(output_dir, "scalar_region_summary_table.tex")
+        table_name = "scalar_region_table"
+        table_dir = table_output_dir(output_dir, table_name)
+        table_path = os.path.join(table_dir, f"{table_name}.tex")
         with open(table_path, "w") as fh:
             fh.write(table)
         print(f"Scalar region summary table saved to: {table_path}")
-        render_latex_table_to_png("scalar_region_summary_table", output_dir=output_dir)
+        render_latex_table_to_png(table_name, output_dir=output_dir)
 
 
-    def save_scalar_mode_comparison_table(self, output_dir="./Results/RawData",):
+    def save_scalar_mode_comparison_table(self, output_dir="./Results/RawData"):
         """
-        Pool new+worn per region and compare modes with Welch t-tests.
+        Pool new+worn per region and compare modes with Welch tests.
 
-        Table columns (9 comparisons total):
-        1-3: Stiffness pairwise differences within region
+        Table columns:
+        1-3: Stiffness pairwise differences within region (ten-com, ten-shear, com-shear)
         4-6: Energy-return pairwise differences within region
         7  : Poisson tension - compression
         8  : Poisson tension vs 0 (one-sample)
         9  : Poisson compression vs 0 (one-sample)
-        Rows:
-        Toe p value / Toe CI, Mid p value / Mid CI, Heel p value / Heel CI.
+        Rows: Toe / Mid / Heel p value and CI.
         """
         os.makedirs(output_dir, exist_ok=True)
 
-        # Pooled new+worn per region uses fixed material indices for this project layout.
         n_regions = len(self.regions)
         if n_regions != 3:
             print(f"Warning: expected 3 regions (toe/mid/heel), got {n_regions}")
 
-        # Two-sample Welch comparisons: (A_vals, B_vals) -> mean(A) - mean(B)
-        def welch_diff_p_ci(a_vals, b_vals):
-            a = np.asarray(a_vals, dtype=float).ravel()
-            b = np.asarray(b_vals, dtype=float).ravel()
-            a = a[~np.isnan(a)]
-            b = b[~np.isnan(b)]
-            if len(a) < 2 or len(b) < 2:
-                return "", ""
-            p_val = float(ttest_ind(a, b, equal_var=False).pvalue)
-            lo, hi = scalar_mean_diff_ttest_ci(a, b, alpha=0.05)
-            return fmt_p_value(p_val), fmt_ci_interval(lo, hi)
-
-        def one_sample_vs_zero_p_ci(x_vals):
-            p_val, lo, hi = scalar_mean_vs_zero_ttest_p_ci(x_vals, alpha=0.05)
-            return fmt_p_value(p_val), fmt_ci_interval(lo, hi)
-
-        # Column specs: (column_header, kind, getter)
-        # kind="diff": two-sample difference A-B
-        # kind="one": one-sample mean vs 0
+        # Mode-pair columns use precomputed p/CI arrays; poisson vs 0 is one-sample.
+        # Mode-pair order: 0=ten-com, 1=ten-shear, 2=com-shear (poisson only has pair 0).
         col_specs = [
-            (r"Stiffness Ten - Comp", "diff", ("stiff", 0, 1)),
-            (r"Stiffness Ten - Shear", "diff", ("stiff", 0, 2)),
-            (r"Stiffness Comp - Shear", "diff", ("stiff", 1, 2)),
-            (r"Energy Ten - Comp", "diff", ("energy", 0, 1)),
-            (r"Energy Ten - Shear", "diff", ("energy", 0, 2)),
-            (r"Energy Comp - Shear", "diff", ("energy", 1, 2)),
-            (r"Poisson Ten - Comp", "diff", ("poisson", 0, 1)),
-            (r"Poisson Ten vs 0", "one", ("poisson", 0, None)),
-            (r"Poisson Comp vs 0", "one", ("poisson", 1, None)),
+            (r"Stiffness Ten - Comp", "mode", "stiff", 0),
+            (r"Stiffness Ten - Shear", "mode", "stiff", 1),
+            (r"Stiffness Comp - Shear", "mode", "stiff", 2),
+            (r"Energy Ten - Comp", "mode", "energy", 0),
+            (r"Energy Ten - Shear", "mode", "energy", 1),
+            (r"Energy Comp - Shear", "mode", "energy", 2),
+            (r"Poisson Ten - Comp", "mode", "poisson", 0),
+            (r"Poisson Ten vs 0", "one", "poisson", 0),
+            (r"Poisson Comp vs 0", "one", "poisson", 1),
         ]
 
-        headers = [r"\makecell{Region}"] + [rf"\makecell{{{h}}}" for h, _, _ in col_specs]
+        mode_p = {
+            "stiff": self.stiffness_mode_p,
+            "energy": self.energy_mode_p,
+            "poisson": self.poisson_mode_p,
+        }
+        mode_ci_min = {
+            "stiff": self.stiffness_mode_ci_min,
+            "energy": self.energy_mode_ci_min,
+            "poisson": self.poisson_mode_ci_min,
+        }
+        mode_ci_max = {
+            "stiff": self.stiffness_mode_ci_max,
+            "energy": self.energy_mode_ci_max,
+            "poisson": self.poisson_mode_ci_max,
+        }
+        poisson_pooled = [
+            [pool_region_mode_samples(self.poisson_mode_samples[m], r) for m in range(2)]
+            for r in range(3)
+        ]
+
+        headers = [r"\makecell{Region}"] + [rf"\makecell{{{h}}}" for h, _, _, _ in col_specs]
 
         rows = []
         for region_idx in range(3):
             region_name = format_ci_region_name(self.regions[region_idx])
-            pooled_stiff = [
-                pool_region_mode_samples(self.stiffness_mode_samples[mode_idx], region_idx)
-                for mode_idx in range(3)
-            ]
-            pooled_energy = [
-                pool_region_mode_samples(self.energy_return_mode_samples[mode_idx], region_idx)
-                for mode_idx in range(3)
-            ]
-            pooled_poisson = [
-                pool_region_mode_samples(self.poisson_mode_samples[mode_idx], region_idx)
-                for mode_idx in range(2)
-            ]
-
-            # Build p-value cells
             p_cells = []
             ci_cells = []
-            for _, kind, spec in col_specs:
-                src = spec[0]
-                if kind == "diff":
-                    _, a_i, b_i = spec
-                    if src == "stiff":
-                        a_vals = pooled_stiff[a_i]
-                        b_vals = pooled_stiff[b_i]
-                    elif src == "energy":
-                        a_vals = pooled_energy[a_i]
-                        b_vals = pooled_energy[b_i]
-                    elif src == "poisson":
-                        a_vals = pooled_poisson[a_i]
-                        b_vals = pooled_poisson[b_i]
-                    else:
-                        a_vals, b_vals = [], []
-                    p_s, ci_s = welch_diff_p_ci(a_vals, b_vals)
-                    p_cells.append(p_s)
-                    ci_cells.append(ci_s)
+            for _, kind, src, idx in col_specs:
+                if kind == "mode":
+                    p_cells.append(fmt_p_value(mode_p[src][region_idx, idx], self.p_threshold))
+                    ci_cells.append(
+                        fmt_ci_interval(
+                            mode_ci_min[src][region_idx, idx],
+                            mode_ci_max[src][region_idx, idx],
+                        )
+                    )
                 else:
-                    _, x_i, _ = spec
-                    if src == "poisson":
-                        x_vals = pooled_poisson[x_i]
-                    else:
-                        x_vals = []
-                    p_s, ci_s = one_sample_vs_zero_p_ci(x_vals)
-                    p_cells.append(p_s)
-                    ci_cells.append(ci_s)
+                    p_val, lo, hi = scalar_mean_vs_zero_ttest_p_ci(
+                        poisson_pooled[region_idx][idx], alpha=0.05
+                    )
+                    p_cells.append(fmt_p_value(p_val, self.p_threshold))
+                    ci_cells.append(fmt_ci_interval(lo, hi))
 
             rows.append([rf"{region_name} p value", *p_cells])
             rows.append([rf"{region_name} CI", *ci_cells])
 
         colspec = rf"|l|{'|'.join(['c'] * len(col_specs))}|"
-        table = latex_tabular_from_tabulate(
-            rows,
-            headers,
-            colspec,
-        )
-        table_path = os.path.join(output_dir, "scalar_mode_comparison_table.tex")
+        table = latex_tabular_from_tabulate(rows, headers, colspec)
+        table_name = "scalar_mode_comparison_table"
+        table_dir = table_output_dir(output_dir, table_name)
+        table_path = os.path.join(table_dir, f"{table_name}.tex")
         with open(table_path, "w") as fh:
             fh.write(table)
         print(f"Scalar mode comparison table saved to: {table_path}")
-        render_latex_table_to_png("scalar_mode_comparison_table", output_dir=output_dir)
+        render_latex_table_to_png(table_name, output_dir=output_dir)
 
     def plot_stress_region_mode_grid(self, output_dir):
         """
@@ -693,7 +690,7 @@ class PreprocessingResults:
             handles=legend_handles,
             loc="center left",
             bbox_to_anchor=(1.01, 0.5),
-            fontsize=self.self.FONT_SIZE - 4,
+            fontsize=self.FONT_SIZE - 4,
             frameon=False,
             borderaxespad=0.0,
             handlelength=1.5,
@@ -946,8 +943,10 @@ class PreprocessingResults:
         os.makedirs(output_dir, exist_ok=True)
         for mat in range(self.n_materials):
             foam_name = self.foam_types[mat]
+            table_stem = f"{foam_name}_stress_table"
             tbl = self.build_stress_table_latex(mat)
-            table_path = os.path.join(output_dir, f"{foam_name}_stress_table.tex")
+            table_dir = table_output_dir(output_dir, "stress_tables")
+            table_path = os.path.join(table_dir, f"{table_stem}.tex")
             with open(table_path, "w") as fh:
                 fh.write(tbl)
             print(f"Stress table saved to: {table_path}\n")
