@@ -1,0 +1,59 @@
+{
+    "run": {
+        "input_file": "input_data_positive.xlsx",
+        "sheet_name": "TSL09",
+        "output_dir": "positive_data_trainable_theta/TSL09/kf_0_10",
+        "saved_weights_path": "positive_data_trainable_theta/TSL09/kf_0_10/cann_TSL09.weights.h5",
+        "loss_curve_path": "positive_data_trainable_theta/TSL09/kf_0_10/loss_curve.png",
+        "predictions_plot_path": "positive_data_trainable_theta/TSL09/kf_0_10/predictions_vs_experimental.png",
+        "weight_matrix_heatmap_path": "positive_data_trainable_theta/TSL09/kf_0_10/weight_matrix_heatmap.png"
+    },
+    "training": {
+        "learning_rate": 0.001,
+        "epochs": 10000,
+        "batch_size": 32,
+        "validation_split": 0.2,
+        "loss_type": "normalized",
+        "loss_normalization": "rms",
+        "early_stop_patience": 1000,
+        "early_stop_min_delta": 0.001
+    },
+    "model_spec": {
+        "l1_penalty": 0.01,
+        "l2_penalty": 0.0,
+        "is_theta_trainable": true,
+        "is_kappa_f_trainable": true,
+        "is_kappa_s_trainable": false,
+        "is_kappa_n_trainable": false
+    },
+    "initialization": {
+        "theta": 1.3,
+        "kappa_f": 0.1,
+        "kappa_s": 0.0,
+        "kappa_n": 0.0
+    },
+    "r2_scores": {
+        "shear_fs": 0.8808810710906982,
+        "shear_fn": 0.3638197183609009,
+        "shear_sf": 0.9091797471046448,
+        "shear_sn": 0.9427544474601746,
+        "shear_nf": 0.9150927662849426,
+        "shear_ns": 0.9255307912826538,
+        "uniaxial_f": 0.7906158566474915,
+        "uniaxial_s": 0.9832459688186646,
+        "uniaxial_n": 0.886975109577179,
+        "average": 0.8442328307363722
+    },
+    "trained_parameters": {
+        "theta": 12.920349541569422,
+        "kappa_f": 0.045153506100177765,
+        "kappa_s": 0.0,
+        "kappa_n": 0.0
+    },
+    "active_invariants": [
+        "I1",
+        "I2",
+        "I4f",
+        "I4s"
+    ]
+}
