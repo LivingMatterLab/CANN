@@ -31,11 +31,25 @@ Isotropic models and data for brain papers.
 1. Invariant-based model, "Automated model discovery for human brain using Constitutive Artificial Neural Networks" https://doi.org/10.1016/j.actbio.2023.01.055
 2. Principal-stretch-based model and invariant model, " Principal-stretch-based constitutive neural networks autonomously discover a subclass of Ogden models for human brain tissue" https://doi.org/10.1016/j.brain.2023.100066
 
+## Foam 
+Models of foam in Asics Metaspeed Sky Tokyo high performance running shoe. Includes code for processing videos of tests to compute lateral strain: 
+1. Original paper, "Discovering the mechanics of ultra-low density elastomeric foams in elite-level racing shoes." https://doi.org/10.1007/s00366-026-02398-y
+2. Worn foam / lateral strain, "Mechanical resilience of ultra-low-density racing-shoe foams", https://doi.org/10.48550/arXiv.2609.20485
+
+## GCANN
+Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constitutive neural networks with correlated weights." https://doi.org/10.48550/arXiv.2503.12679
+
+## GICANN
+Generalized-invariant-based constitutive neural network, "Generalized invariants meet constitutive neural networks: A novel framework for hyperelastic materials." https://doi.org/10.1016/j.jmps.2025.106352
+
 ## Heart
 Orthotropic model and shear and biaxial data for heart papers.
 1. "Automated model discovery for human cardiac tissue: Discovering the best model and parameters" https://doi.org/10.1016/j.cma.2024.117078
 2. "Discovering dispersion: How robust is automated model discovery for human myocardial tissue?" https://doi.org/10.1007/s10237-025-02005-x
 3. "Fiber dispersion in the right ventricle: A comparison of constitutive neural network predictions with experimental data" https://doi.org/10.1016/j.jbiomech.2026.113532
+
+## Mesh
+Knitted material anisotropic constitutive neural network, "Automated model discovery for textile structures: The unique mechanical signature of warp knitted fabrics" https://doi.org/10.1101/2024.07.26.605392
 
 ## Muscle
 Viscoelastic constitutive recurrent neural network model, "Automated model discovery for muscle using constitutive recurrent neural networks" https://doi.org/10.1016/j.jmbbm.2023.106021
@@ -45,15 +59,6 @@ Isotropic invariant-based model, "A new family of Constitutive Artificial Neural
 
 ## Skin
 Anistropic constitutive artificial neural network model, "Automated model discovery for skin: Discovering the best model, data, and experiment" https://doi.org/10.1016/j.cma.2023.116007
-
-## Mesh
-Knitted material anisotropic constitutive neural network, "Automated model discovery for textile structures: The unique mechanical signature of warp knitted fabrics" https://doi.org/10.1101/2024.07.26.605392
-
-## GCANN
-Gaussian Constitutive Neural Network, "Discovering uncertainty: Gaussian constitutive neural networks with correlated weights." https://doi.org/10.48550/arXiv.2503.12679
-
-## GICANN
-Generalized-invariant-based constitutive neural network, "Generalized invariants meet constitutive neural networks: A novel framework for hyperelastic materials." https://doi.org/10.1016/j.jmps.2025.106352
 
 ## WORKSHOPS
 Code, slides, and data from ME233: Automated Model Discovery Winter 2026, Graz Summer Biomechanics School in 2023, and the ESB conference short course in 2025. Contains Google Colab code to run the same models and data as contained in the BRAIN folder.
